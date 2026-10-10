@@ -1,6 +1,8 @@
 // All gameplay tuning lives here. Lateral distances are in "world units";
 // at the riders' depth one unit is roughly 0.43 screen pixels.
 
+import { CHARACTERS } from './characters.js';
+
 export const WIDTH = 960;
 export const HEIGHT = 540;
 
@@ -51,7 +53,7 @@ export const RIDER = {
   // by reachPerHeight of that scale (a 10% taller rider reaches 6% farther).
   baseHeightIn: 69,
   reachPerHeight: 0.6,
-  playerHeightIn: 68, // 2010 and 2-player height; 1999 overrides it in DIFFICULTIES
+  playerHeightIn: 68, // 2-player height; in 1 player your chosen rider sets it
 };
 
 export const RIVER = {
@@ -88,32 +90,22 @@ export const BOAT = {
   transition: 1.5, // seconds to ease to the new speed
 };
 
-// 1-player modes: which boat speeds can come up (2 players always use all of them),
-// the player's height, and per-mode names and heights for the OPPONENTS personas
-// (same fighting style).
+// 1-player modes: the boat speeds it switches between after its slow start (2 players
+// always use all of them) and how long that slow start lasts (default: a normal hold).
+// Each mode's riders are in src/characters.js.
 export const DIFFICULTIES = {
   easy: {
     year: '1999',
     label: 'EASY',
     speeds: ['slow', 'medium'],
     blurb: 'Slow and medium speeds.\nFlat water or a small wake.',
-    playerHeightIn: 63,
-    roster: {
-      'B-Nap': { name: 'Adam', heightIn: 56 },
-      Moni: { name: 'RJ', heightIn: 62 },
-      Chillo: { name: 'Billy', heightIn: 65 },
-      Burton: { name: 'Mike', heightIn: 68 },
-      Franzi: { name: 'Rob', heightIn: 60 },
-      Barf: { name: 'Dan', heightIn: 67 },
-    },
   },
   hard: {
     year: '2010',
     label: 'HARD',
-    speeds: ['slow', 'medium', 'fast'],
-    blurb: 'All three speeds.\nBig wakes, big air, stomps.',
-    playerHeightIn: RIDER.playerHeightIn,
-    roster: {},
+    speeds: ['medium', 'fast'],
+    openingHold: [3, 5],
+    blurb: 'Starts slow, then never lets up.\nBig wakes, big air, stomps.',
   },
 };
 
@@ -262,7 +254,8 @@ export const CPU_SKILL_BY_RUNG = [
 
 // Personalities, modeled on Road Rash's rival archetypes (rookie "idiot", passive
 // strafer, aggressive spammer, rammer), plus a sub-boss who mixes them and a boss.
-//   heightIn:          height in inches (reach and hurtbox size)
+// This is only how the CPU fights; names, looks, height, grip, weight and the
+// description shown to players are in src/characters.js.
 //   attacks:           relative preference for each attack
 //   preferredDistance: center-to-center spacing it tries to hold (tubes touch at 180)
 //   strafe:            how far that spacing drifts in and out over time
@@ -272,28 +265,19 @@ export const CPU_SKILL_BY_RUNG = [
 //   counter:           multiplier on low-kicking you while you punch one-handed
 //   greed:             chance it chases a health item it can reach
 //   ram:               false | 'nearShore' (shoves when you're near the shore) | 'always'
-//   mass:              how hard it is to shove (and how hard it shoves) in tube bumps
-//   leanPower:         lean strength multiplier
 //   retreatBelow:      backs off to recover when its balance drops below this (0 = never)
-//   toughness:         multiplier on damage it takes
 //   mimics:            instead of its own style, fights like one of these OPPONENTS
 //                      at a time, picking a new one at random every styleHold seconds
 const PERSONA_DEFAULTS = {
   strafe: 0,
   sloppiness: 0,
   ram: false,
-  mass: 1,
-  leanPower: 1,
   retreatBelow: 0,
-  toughness: 1,
 };
 
 export const OPPONENTS = {
   Chillo: {
     ...PERSONA_DEFAULTS,
-    color: 0x2ecc71,
-    heightIn: 73,
-    blurb: 'Rookie. Flails at anything, even from too far away, and barely defends.',
     attacks: { high: 1, mid: 1, low: 1 },
     preferredDistance: 240,
     strafe: 60,
@@ -305,9 +289,6 @@ export const OPPONENTS = {
   },
   Moni: {
     ...PERSONA_DEFAULTS,
-    color: 0xb05cc8,
-    heightIn: 69,
-    blurb: 'Passive strafer. Drifts in and out of kick range, dodges, backs off when hurt.',
     attacks: { high: 0.1, mid: 1, low: 0.7 },
     preferredDistance: 320,
     strafe: 45,
@@ -319,9 +300,6 @@ export const OPPONENTS = {
   },
   Franzi: {
     ...PERSONA_DEFAULTS,
-    color: 0xf1c40f,
-    heightIn: 64,
-    blurb: 'Aggressive spammer. Gets right up close and never stops swinging.',
     attacks: { high: 1, mid: 0.7, low: 0.4 },
     preferredDistance: 190,
     aggression: 1.7,
@@ -331,9 +309,6 @@ export const OPPONENTS = {
   },
   Burton: {
     ...PERSONA_DEFAULTS,
-    color: 0xe67e22,
-    heightIn: 77,
-    blurb: 'Rammer. Big, heavy, and always shoving you toward the shore.',
     attacks: { high: 0.4, mid: 1, low: 0.4 },
     preferredDistance: 200,
     aggression: 1,
@@ -341,22 +316,14 @@ export const OPPONENTS = {
     counter: 0.6,
     greed: 0.4,
     ram: 'always',
-    mass: 1.8,
-    leanPower: 1.3,
   },
   Barf: {
     ...PERSONA_DEFAULTS,
-    color: 0xff6fae,
-    heightIn: 69,
-    blurb: 'Sub-boss. Fights like any rider below him on the ladder, and keeps switching.',
     mimics: ['Chillo', 'Franzi', 'Burton', 'Moni'],
     styleHold: [5, 10],
   },
   'B-Nap': {
     ...PERSONA_DEFAULTS,
-    color: 0x22262e,
-    heightIn: 60,
-    blurb: 'The final boss. Small, slippery, does everything well, grabs every health item.',
     attacks: { high: 0.8, mid: 0.8, low: 0.8 },
     preferredDistance: 225,
     aggression: 1.2,
@@ -364,14 +331,34 @@ export const OPPONENTS = {
     counter: 1.5,
     greed: 0.9,
     ram: 'nearShore',
-    leanPower: 1.2,
     retreatBelow: 30,
-    toughness: 0.9,
   },
 };
 
-export const BOSS = 'B-Nap';
-export const SUB_BOSS = 'Barf';
+// 1-player ladder, bottom rung first (OPPONENTS keys), from each rider's ladderId in
+// src/characters.js. The top rung is the final boss, the one below it the sub-boss.
+export const LADDER_ORDER = CHARACTERS.filter((c) => c.ladderId)
+  .sort((a, b) => a.ladderId - b.ladderId)
+  .map((c) => c.nickname);
+export const BOSS = LADDER_ORDER.at(-1);
+export const SUB_BOSS = LADDER_ORDER.at(-2);
 
-// 1-player ladder, bottom rung first (OPPONENTS keys).
-export const LADDER_ORDER = ['Chillo', 'Franzi', 'Burton', 'Moni', SUB_BOSS, BOSS];
+// Riders themselves (names, looks, height, grip, unlocks) are in src/characters.js.
+export const GRIP_PER_POINT = 0.06; // damage taken per grip point away from 3
+export const MAX_GRIP = 5;
+
+// Trunks colors offered on the rider select screen.
+export const TRUNKS_COLORS = [0xd62828, 0xf77f00, 0xfcd34d, 0x84cc16, 0x14b8a6, 0x1d4ed8, 0xec4899, 0x1f2937];
+
+// Riders you make yourself: the top row of the rider select screen. Each mode keeps its own.
+export const CUSTOM = {
+  slots: 4,
+  name: 'Custom', // shown on empty slots, and used if you leave the name blank
+  nameMaxLength: 10,
+  minHeightIn: 54, // 4'6"
+  maxHeightIn: 78, // 6'6"
+  heightIn: { easy: 63, hard: 68 }, // a new rider's starting height in each mode
+  grip: 3, // a new rider's starting grip
+  shirts: [0xe04848, 0x8e44ad, 0x16a085, 0x00b4d8], // shirt color for each slot
+  trunks: [0x1d4ed8, 0xd62828, 0xfcd34d, 0x1f2937], // a new rider's starting trunks for each slot
+};

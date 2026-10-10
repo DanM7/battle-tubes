@@ -1,7 +1,6 @@
 import Phaser from 'phaser';
 import { WIDTH, HEIGHT, DIFFICULTIES } from '../config.js';
-import { newCampaign } from '../campaign.js';
-import { addCloseButton } from './ui.js';
+import { addBackButton } from './ui.js';
 
 const FONT = 'Arial Black, Arial, sans-serif';
 const SQUARE = 300;
@@ -9,7 +8,8 @@ const GAP = 60;
 const CENTER_Y = 305;
 const COLORS = { easy: [0x2f7d32, 0x3e9e42], hard: [0xa8322a, 0xc9443a] };
 
-// 1-player mode select: two big squares, one per difficulty.
+// 1-player mode select: two big squares, one per difficulty. Comes before rider
+// select, since each mode has its own riders.
 export class DifficultyScene extends Phaser.Scene {
   constructor() {
     super('Difficulty');
@@ -30,7 +30,7 @@ export class DifficultyScene extends Phaser.Scene {
       this.makeSquare(x, CENTER_Y, key);
     });
 
-    addCloseButton(this);
+    addBackButton(this);
     this.input.keyboard.once('keydown-ONE', () => this.choose('easy'));
     this.input.keyboard.once('keydown-TWO', () => this.choose('hard'));
   }
@@ -58,6 +58,6 @@ export class DifficultyScene extends Phaser.Scene {
   }
 
   choose(difficulty) {
-    this.scene.start('Ladder', { campaign: newCampaign(difficulty) });
+    this.scene.start('PlayerSelect', { difficulty });
   }
 }

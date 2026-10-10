@@ -1,7 +1,10 @@
 import { PHYSICS, RIDER, ATTACKS, DODGE, BUMP, SHORE, WAKE, JUMP, STOMP } from './config.js';
-import { wakeHeight, wakeSlope, wakeMaxSlope, crossedCrest } from './wake.js';
+import { wakeHeight, wakeSlope, wakeMaxSlope, crossedCrestInward } from './wake.js';
 
 const SCRAPE_TEXT_COOLDOWN = 1.5;
+
+const darken = (color, k = 0.55) =>
+  (Math.round(((color >> 16) & 255) * k) << 16) | (Math.round(((color >> 8) & 255) * k) << 8) | Math.round((color & 255) * k);
 
 // How far a rider can swing this frame. `shore` is true when the river bank,
 // not the end of the tow rope, is the limit (only then can you scrape).
@@ -10,9 +13,10 @@ export const OPEN_WATER = { limit: PHYSICS.swingLimit, shore: false };
 // Rider states: idle | windup | active | recovery | hitstun | off
 // Ducking is a flag layered on top of idle; airborne is independent of state.
 export class Rider {
-  constructor({ name, color, side, heightIn = RIDER.playerHeightIn, toughness = 1, mass = 1, leanPower = 1 }) {
+  constructor({ name, color, trunks = darken(color), side, heightIn = RIDER.playerHeightIn, toughness = 1, mass = 1, leanPower = 1 }) {
     this.name = name;
     this.color = color;
+    this.trunks = trunks;
     this.startSide = side;
     this.heightIn = heightIn;
     this.heightScale = heightIn / RIDER.baseHeightIn;
@@ -155,7 +159,8 @@ export class Rider {
     this.updateTilt(dt);
   }
 
-  // Grounded riders follow the water surface; going over a crest fast enough launches them.
+  // Grounded riders follow the water surface; cutting back in over a crest fast enough
+  // launches them.
   updateHeight(dt, prevX) {
     const ground = wakeHeight(this.x, this.wake);
     if (this.airborne) {
@@ -172,7 +177,7 @@ export class Rider {
 
     const launch = Math.min(JUMP.maxLaunch, Math.abs(this.vx) * wakeMaxSlope(this.wake) * JUMP.launch);
     const jumps =
-      !this.isOff && crossedCrest(prevX, this.x) && Math.abs(this.vx) >= JUMP.minSpeed && launch >= JUMP.minLaunch;
+      !this.isOff && crossedCrestInward(prevX, this.x) && Math.abs(this.vx) >= JUMP.minSpeed && launch >= JUMP.minLaunch;
     if (!jumps) {
       this.alt = ground;
       return;

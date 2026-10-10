@@ -33,7 +33,7 @@ export class MenuScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
     this.add
-      .text(WIDTH / 2, 175, 'Hang on. Kick hard. Last one on their tube wins.', {
+      .text(WIDTH / 2, 175, 'Hang on. Fight dirty. Wake warfare starts here!', {
         fontFamily: FONT,
         fontSize: '18px',
         color: '#ffffff',
@@ -42,31 +42,47 @@ export class MenuScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    this.makeButton(WIDTH / 2, 265, '1 PLAYER', () => this.startGame('1p'));
-    this.makeButton(WIDTH / 2, 340, '2 PLAYERS', () => this.startGame('2p'));
-    this.makeButton(WIDTH / 2, 415, 'CONTROLS', () => this.scene.start('Controls'));
+    this.makeButton(WIDTH / 2, 240, '1 PLAYER', () => this.startOnePlayer());
+    this.makeButton(WIDTH / 2, 305, '2 PLAYERS', () => this.comingSoon(), { dimmed: true });
+    this.makeButton(WIDTH / 2, 370, 'CONTROLS', () => this.scene.start('Controls'));
+    this.makeButton(WIDTH / 2, 435, 'PASSWORD', () => this.scene.start('Password'));
 
-    this.input.keyboard.once('keydown-ONE', () => this.startGame('1p'));
-    this.input.keyboard.once('keydown-TWO', () => this.startGame('2p'));
+    this.input.keyboard.once('keydown-ONE', () => this.startOnePlayer());
+    this.input.keyboard.on('keydown-TWO', () => this.comingSoon());
   }
 
-  makeButton(x, y, label, onClick) {
+  makeButton(x, y, label, onClick, { dimmed = false } = {}) {
+    const [fill, hover] = dimmed ? [0x3d5470, 0x4a6585] : [0x1d4e89, 0x2a6bb8];
     const rect = this.add
-      .rectangle(x, y, 380, 58, 0x1d4e89)
-      .setStrokeStyle(3, 0xffffff)
+      .rectangle(x, y, 380, 58, fill)
+      .setStrokeStyle(3, 0xffffff, dimmed ? 0.5 : 1)
       .setInteractive({ useHandCursor: true });
-    this.add.text(x, y, label, { fontFamily: FONT, fontSize: '24px', color: '#ffffff' }).setOrigin(0.5);
-    rect.on('pointerover', () => rect.setFillStyle(0x2a6bb8));
-    rect.on('pointerout', () => rect.setFillStyle(0x1d4e89));
+    this.add.text(x, y, label, { fontFamily: FONT, fontSize: '24px', color: dimmed ? '#aab8c8' : '#ffffff' }).setOrigin(0.5);
+    rect.on('pointerover', () => rect.setFillStyle(hover));
+    rect.on('pointerout', () => rect.setFillStyle(fill));
     rect.on('pointerup', onClick);
   }
 
-  startGame(mode) {
+  startOnePlayer() {
     if (this.sys.game.device.input.touch && !this.scale.isFullscreen) {
       this.scale.startFullscreen();
       screen.orientation?.lock?.('landscape').catch(() => {});
     }
-    if (mode === '1p') this.scene.start('Difficulty');
-    else this.scene.start('Game', { mode });
+    this.scene.start('Difficulty');
+  }
+
+  comingSoon() {
+    this.toast?.destroy();
+    const toast = this.add
+      .text(WIDTH / 2, 500, '2 PLAYERS IS COMING SOON!', {
+        fontFamily: FONT,
+        fontSize: '24px',
+        color: '#ffdd55',
+        stroke: '#000000',
+        strokeThickness: 5,
+      })
+      .setOrigin(0.5);
+    this.toast = toast;
+    this.tweens.add({ targets: toast, alpha: 0, delay: 1400, duration: 500, onComplete: () => toast.destroy() });
   }
 }

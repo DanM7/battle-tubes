@@ -6,10 +6,15 @@ const lerp = (a, b, t) => a + (b - a) * t;
 
 // The boat's throttle: holds a speed, announces the next one BOAT.warning seconds
 // ahead, then eases speed, wake height and turn fling over BOAT.transition seconds.
-// `tiers`: the BOAT.speeds keys it may use (must include 'slow', the starting speed).
+// Every round starts slow.
+//   tiers: the BOAT.speeds keys it switches between. If 'slow' isn't one of them, the
+//     boat leaves slow for good once the opening hold is over.
+//   openingHold: [min, max] seconds at slow before the first change (default: a
+//     normal hold).
 export class Boat {
-  constructor(tiers = Object.keys(BOAT.speeds)) {
+  constructor({ tiers = Object.keys(BOAT.speeds), openingHold = [BOAT.holdMin, BOAT.holdMax] } = {}) {
     this.tiers = tiers;
+    this.openingHold = openingHold;
     this.reset();
   }
 
@@ -19,7 +24,7 @@ export class Boat {
     this.from = BOAT.speeds.slow;
     this.to = BOAT.speeds.slow;
     this.blend = 1;
-    this.holdTimer = rand(BOAT.holdMin, BOAT.holdMax);
+    this.holdTimer = rand(...this.openingHold);
   }
 
   update(dt) {

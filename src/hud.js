@@ -1,9 +1,13 @@
 import { WIDTH, RIDER, MATCH, BOAT } from './config.js';
+import { settings } from './settings.js';
 
 const BAR_W = 200;
 const BAR_H = 12;
 const MARGIN = 16;
 const SPEED_Y = 64;
+const ICON_SIZE = 34;
+const ICON_Y = 98;
+const ICON_FILL = 0x1d4e89;
 const SPEED_TIERS = Object.keys(BOAT.speeds);
 const SPEED_COLORS = { slow: 0x7dff7d, medium: 0xffdd55, fast: 0xff6b3d };
 
@@ -16,7 +20,7 @@ const TEXT = {
 };
 
 export class Hud {
-  constructor(scene, names) {
+  constructor(scene, names, { onSettings, onPause }) {
     this.scene = scene;
     this.g = scene.add.graphics().setDepth(50);
 
@@ -34,6 +38,24 @@ export class Hud {
     this.sub = scene.add.text(WIDTH / 2, 198, '', { ...TEXT, fontSize: '20px' }).setOrigin(0.5).setDepth(60);
     this.warning = scene.add.text(WIDTH / 2, 30, '', { ...TEXT, fontSize: '22px', color: '#ffdd55' }).setOrigin(0.5).setDepth(60);
     this.speed = scene.add.text(WIDTH / 2 - 8, SPEED_Y, '', { ...TEXT, fontSize: '15px', strokeThickness: 3 }).setOrigin(0, 0.5).setDepth(60);
+
+    const gearX = MARGIN + ICON_SIZE / 2;
+    this.iconButton(gearX, drawGear, onSettings);
+    this.iconButton(gearX + ICON_SIZE + 10, drawPause, onPause);
+  }
+
+  // A small square button under P1's bars with an icon drawn by `drawIcon(g)`.
+  iconButton(x, drawIcon, onClick) {
+    const rect = this.scene.add
+      .rectangle(x, ICON_Y, ICON_SIZE, ICON_SIZE, ICON_FILL, 0.85)
+      .setStrokeStyle(2, 0xffffff)
+      .setDepth(55)
+      .setInteractive({ useHandCursor: true });
+    const icon = this.scene.add.graphics({ x, y: ICON_Y }).setDepth(56);
+    drawIcon(icon);
+    rect.on('pointerover', () => rect.setFillStyle(0x2a6bb8, 0.95));
+    rect.on('pointerout', () => rect.setFillStyle(ICON_FILL, 0.85));
+    rect.on('pointerup', onClick);
   }
 
   setStatus(main, sub = '') {
@@ -50,7 +72,6 @@ export class Hud {
   update(riders, wins, bend, time, boat) {
     const g = this.g;
     g.clear();
-    this.drawSpeed(boat, time);
 
     riders.forEach((r, i) => {
       const { x, align } = this.panels[i];
@@ -65,7 +86,10 @@ export class Hud {
       }
     });
 
-    if (!bend) {
+    // The turn banner and speed gauge are Debug Mode only.
+    if (settings.debug) this.drawSpeed(boat, time);
+    else this.speed.setText('');
+    if (!settings.debug || !bend) {
       this.warning.setText('');
       return;
     }
@@ -112,4 +136,23 @@ export class Hud {
     g.fillStyle(color, 1);
     g.fillRect(align === 0 ? x : x + BAR_W - w, y, w, BAR_H);
   }
+}
+
+// Icons are drawn around (0, 0) in a graphics object placed at the button's center.
+function drawGear(g) {
+  g.lineStyle(5, 0xffffff, 1);
+  for (let i = 0; i < 8; i++) {
+    const a = (i * Math.PI) / 4;
+    g.lineBetween(Math.cos(a) * 6, Math.sin(a) * 6, Math.cos(a) * 12, Math.sin(a) * 12);
+  }
+  g.fillStyle(0xffffff, 1);
+  g.fillCircle(0, 0, 8.5);
+  g.fillStyle(ICON_FILL, 1);
+  g.fillCircle(0, 0, 3.5);
+}
+
+function drawPause(g) {
+  g.fillStyle(0xffffff, 1);
+  g.fillRect(-7, -9, 5, 18);
+  g.fillRect(2, -9, 5, 18);
 }

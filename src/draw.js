@@ -1,19 +1,34 @@
 import { RIDER, PICKUPS, WAKE, ROPE_LENGTH, RIDER_Z } from './config.js';
-import { wakeHeight } from './wake.js';
+import { wakeHeight, wakeProfile } from './wake.js';
 
 // Placeholder rectangle art. Each `p` is a projected point { x, y, s } where
 // s is screen pixels per world unit at that depth.
 
 const SKIN = 0xf1c27d;
+const TRUNKS_HEIGHT = 30; // swim trunks band at the bottom of the torso
 const HITBOX_OUTLINE = 0x00ff88;
 const ONE_HANDED_OUTLINE = 0xff6b00; // tube outline while punching: it takes extra damage
-const RIDGE_INNER = 0x4a9ad8;
-const RIDGE_OUTER = 0x2364a0;
+const WAKE_TOP = 0x4a9ad8; // the raised water between the crests
+const WAKE_FACE = 0x2364a0; // the outer faces
 const WAKE_SLICES = 24;
 const WAKE_NEAR_DEPTH = RIDER_Z * 0.65; // just past the bottom of the screen
 
-// The foam trail behind the boat, plus (when `amp` > 0) the two wake ridges spreading
-// out in a V. They reach WAKE.crestX at the riders' depth, matching the physics.
+// The wake's crest distance, outer face width and height at `zAhead`: it spreads out in a
+// V from the boat and matches the physics (WAKE.crestX, WAKE.halfBase) at the riders' depth.
+function wakeAt(zAhead, boatDepth, amp) {
+  const k = (boatDepth - zAhead) / ROPE_LENGTH;
+  return { crest: WAKE.crestX * k, half: WAKE.halfBase * (0.35 + 0.65 * k), height: amp * Math.min(1, k / 0.35) };
+}
+
+// Height of the water surface at any depth, for things floating on it.
+export function wakeSurfaceHeight(zAhead, x, boatDepth, amp) {
+  if (amp <= 0 || zAhead >= boatDepth) return 0;
+  const { crest, half, height } = wakeAt(zAhead, boatDepth, amp);
+  return wakeProfile(x, height, crest, half);
+}
+
+// The foam trail behind the boat, plus (when `amp` > 0) the wake spreading out in a V:
+// raised water between the two crests, with an outer face dropping off beyond each.
 // project(zAhead, worldX) returns a projected point.
 export function drawWake(g, project, boatDepth, amp) {
   const boat = project(boatDepth, 0);
@@ -31,31 +46,28 @@ export function drawWake(g, project, boatDepth, amp) {
   if (amp <= 0) return;
 
   const far = boatDepth - 80;
-  const slices = [];
+  const rows = [];
   for (let i = 0; i <= WAKE_SLICES; i++) {
     const z = far - ((far - WAKE_NEAR_DEPTH) * i) / WAKE_SLICES;
-    const k = (boatDepth - z) / ROPE_LENGTH;
-    slices.push({ z, crest: WAKE.crestX * k, half: WAKE.halfBase * (0.35 + 0.65 * k), height: amp * Math.min(1, k / 0.35) });
+    const { crest, half, height } = wakeAt(z, boatDepth, amp);
+    const top = (side) => {
+      const p = project(z, side * crest);
+      return { x: p.x, y: p.y - height * p.s };
+    };
+    rows.push({ left: top(-1), right: top(1), leftOuter: project(z, -(crest + half)), rightOuter: project(z, crest + half) });
   }
-  for (const side of [-1, 1]) {
-    const rows = slices.map(({ z, crest, half, height }) => {
-      const top = project(z, side * crest);
-      return {
-        inner: project(z, side * Math.max(crest - half, crest * 0.5)),
-        top: { x: top.x, y: top.y - height * top.s },
-        outer: project(z, side * (crest + half)),
-      };
-    });
-    for (let i = 0; i < WAKE_SLICES; i++) {
-      const a = rows[i];
-      const b = rows[i + 1];
-      g.fillStyle(RIDGE_INNER, 0.85);
-      g.fillPoints([a.inner, a.top, b.top, b.inner], true);
-      g.fillStyle(RIDGE_OUTER, 0.85);
-      g.fillPoints([a.top, a.outer, b.outer, b.top], true);
-      g.lineStyle(2, 0xffffff, 0.7);
-      g.lineBetween(a.top.x, a.top.y, b.top.x, b.top.y);
-    }
+  // Far to near, so nearer slices cover farther ones.
+  for (let i = 0; i < WAKE_SLICES; i++) {
+    const a = rows[i];
+    const b = rows[i + 1];
+    g.fillStyle(WAKE_TOP, 0.85);
+    g.fillPoints([a.left, a.right, b.right, b.left], true);
+    g.fillStyle(WAKE_FACE, 0.85);
+    g.fillPoints([a.left, a.leftOuter, b.leftOuter, b.left], true);
+    g.fillPoints([a.right, a.rightOuter, b.rightOuter, b.right], true);
+    g.lineStyle(2, 0xffffff, 0.7);
+    g.lineBetween(a.left.x, a.left.y, b.left.x, b.left.y);
+    g.lineBetween(a.right.x, a.right.y, b.right.x, b.right.y);
   }
 }
 
@@ -158,7 +170,9 @@ export function drawRider(g, r, p, time) {
 
   const body = r.hurtBox('body');
   const head = r.hurtBox('head');
+  const trunks = { ...body, y2: body.y1 + TRUNKS_HEIGHT * r.heightScale };
   fill(body, r.flash > 0 ? 0xffffff : r.color);
+  if (r.flash <= 0) fill(trunks, r.trunks);
   fill(head, r.flash > 0 ? 0xffffff : SKIN);
   outline(body, HITBOX_OUTLINE);
   outline(head, HITBOX_OUTLINE);

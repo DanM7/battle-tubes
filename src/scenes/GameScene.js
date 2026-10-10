@@ -9,8 +9,12 @@ import { HumanController, KEYMAPS } from '../input.js';
 import { TouchControls } from '../touch.js';
 import { Hud } from '../hud.js';
 import { Pickups } from '../pickups.js';
-import { newCampaign, afterMatch, rivalProfile } from '../campaign.js';
-import { drawBoat, drawPickup, drawRider, drawRope, drawWake } from '../draw.js';
+import { PauseMenu } from '../pauseMenu.js';
+import { SpeechBubble } from '../speechBubble.js';
+import { nextTaunt } from '../taunts.js';
+import { newCampaign, afterMatch, rivalProfile, playerRiderOptions } from '../campaign.js';
+import { recordWin } from '../progress.js';
+import { drawBoat, drawPickup, drawRider, drawRope, drawWake, wakeSurfaceHeight } from '../draw.js';
 
 const NEUTRAL = { left: false, right: false, duck: false, high: false, mid: false, low: false };
 const NO_ATTACKS = { high: false, mid: false, low: false };
@@ -36,6 +40,12 @@ const KNOCKOFF_TEXT = {
 const BUMP_FEEDBACK_SPEED = 250;
 const BIG_AIR_LAUNCH = 650;
 
+// Round-start taunts: seconds into the countdown when P1 and then P2 speak, and how
+// long the bubbles take to fade once the fight starts.
+const TAUNT_TIMES = [0.15, 0.9];
+const TAUNT_FADE = 0.6;
+const TAUNT_HEAD_GAP = 6;
+
 export class GameScene extends Phaser.Scene {
   constructor() {
     super('Game');
@@ -48,7 +58,8 @@ export class GameScene extends Phaser.Scene {
 
   create() {
     this.river = new River();
-    this.boat = this.campaign ? new Boat(DIFFICULTIES[this.campaign.difficulty].speeds) : new Boat();
+    const difficulty = this.campaign && DIFFICULTIES[this.campaign.difficulty];
+    this.boat = difficulty ? new Boat({ tiers: difficulty.speeds, openingHold: difficulty.openingHold }) : new Boat();
     this.pickups = new Pickups(this.river);
     this.cameraZ = 0;
     this.distance = 0;
@@ -64,19 +75,9 @@ export class GameScene extends Phaser.Scene {
     const rival = this.campaign ? rivalProfile(this.campaign, this.campaign.order[this.campaign.rung]) : null;
     this.riders = [
       this.campaign
-        ? new Rider({ name: 'P1', color: 0xe04848, side: -1, heightIn: DIFFICULTIES[this.campaign.difficulty].playerHeightIn })
+        ? new Rider({ ...playerRiderOptions(this.campaign), side: -1 })
         : new Rider({ name: 'P1', color: 0xe04848, side: -1 }),
-      rival
-        ? new Rider({
-            name: rival.name,
-            color: rival.color,
-            side: 1,
-            heightIn: rival.heightIn,
-            toughness: rival.toughness,
-            mass: rival.mass,
-            leanPower: rival.leanPower,
-          })
-        : new Rider({ name: 'P2', color: 0x3f6fe0, side: 1 }),
+      rival ? new Rider({ ...rival, side: 1 }) : new Rider({ name: 'P2', color: 0x3f6fe0, side: 1 }),
     ];
     this.riders[0].opponent = this.riders[1];
     this.riders[1].opponent = this.riders[0];
@@ -86,11 +87,19 @@ export class GameScene extends Phaser.Scene {
       ? [new HumanController(this, KEYMAPS.p1, this.touch, 0), new HumanController(this, KEYMAPS.p2, this.touch, 1)]
       : [
           new HumanController(this, KEYMAPS.solo, this.touch, 0),
-          new CpuController(this.riders[1], this.riders[0], rival, CPU_SKILL_BY_RUNG[this.campaign.rung], this.pickups),
+          new CpuController(this.riders[1], this.riders[0], rival, CPU_SKILL_BY_RUNG[Math.min(this.campaign.rung, CPU_SKILL_BY_RUNG.length - 1)], this.pickups),
         ];
 
-    this.hud = new Hud(this, this.riders.map((r) => r.name));
+    this.pauseMenu = new PauseMenu(this, {
+      onResume: () => this.pauseMenu.close(),
+      onQuit: () => this.scene.start('Menu'),
+    });
+    this.hud = new Hud(this, this.riders.map((r) => r.name), {
+      onSettings: () => this.pauseMenu.open('settings'),
+      onPause: () => this.pauseMenu.open('pause'),
+    });
     this.input.keyboard.on('keydown-ESC', () => this.scene.start('Menu'));
+    this.input.keyboard.on('keydown-P', () => (this.pauseMenu.isOpen ? this.pauseMenu.close() : this.pauseMenu.open('pause')));
 
     this.startRound();
   }
@@ -127,6 +136,32 @@ export class GameScene extends Phaser.Scene {
     this.riders.forEach((r) => r.reset());
     this.controllers.forEach((c) => c.reset?.());
     this.setPhase('countdown', MATCH.countdown);
+    this.clearTaunts();
+    this.taunts = this.riders.map((rider, i) => ({ rider, line: nextTaunt(), at: TAUNT_TIMES[i], bubble: null }));
+    this.tauntFade = TAUNT_FADE;
+  }
+
+  // Bubbles pop up during the countdown, follow their rider, and fade out after GO.
+  updateTaunts(dt) {
+    if (this.phase === 'countdown') {
+      const elapsed = MATCH.countdown - this.phaseTimer;
+      for (const t of this.taunts) {
+        if (!t.bubble && elapsed >= t.at) t.bubble = new SpeechBubble(this, t.line, t.rider.side, t.rider.color);
+      }
+    } else {
+      this.tauntFade -= dt;
+      if (this.tauntFade <= 0) return this.clearTaunts();
+    }
+    for (const { rider, bubble } of this.taunts) {
+      if (!bubble) continue;
+      bubble.setAnchor(rider.screenX, rider.screenTop - TAUNT_HEAD_GAP);
+      bubble.setAlpha(Math.min(1, this.tauntFade / TAUNT_FADE));
+    }
+  }
+
+  clearTaunts() {
+    this.taunts?.forEach((t) => t.bubble?.destroy());
+    this.taunts = [];
   }
 
   setPhase(phase, duration = 0) {
@@ -135,6 +170,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   update(_, deltaMs) {
+    if (this.pauseMenu.isOpen) return;
     const dt = Math.min(deltaMs / 1000, 1 / 30);
     this.clock += dt;
     if (this.phase === 'fight') this.boat.update(dt);
@@ -171,6 +207,7 @@ export class GameScene extends Phaser.Scene {
     this.treeline.tilePositionX += curve * dt * 10;
     this.river.render(this.worldG, this.cameraZ);
     this.renderEntities(curve);
+    this.updateTaunts(dt);
     const warnDistance = RIVER.bendWarningDistance * (speed / BOAT.speeds.slow.speed);
     this.hud.update(this.riders, this.wins, this.river.upcomingBend(boatZ, warnDistance), this.clock, this.boat);
   }
@@ -239,19 +276,26 @@ export class GameScene extends Phaser.Scene {
 
   endMatch(winner) {
     this.setPhase('matchOver');
+    const opponentKey = this.campaign?.order[this.campaign.rung];
+    const unlocked = this.campaign && winner === 0 && recordWin(this.campaign.difficulty, opponentKey) ? opponentKey : null;
     const next = this.campaign
-      ? () => this.scene.start('Ladder', { campaign: afterMatch(this.campaign, winner === 0) })
+      ? () => this.scene.start('Ladder', { campaign: afterMatch(this.campaign, winner === 0), unlocked })
       : () => this.scene.restart({ mode: this.mode });
     const prompt = this.campaign ? 'Tap or press Enter to continue' : 'Tap or press Enter to rematch  -  Esc for menu';
     this.hud.setStatus(`${this.riders[winner].name} WINS!`, prompt);
 
     const proceed = () => {
-      if (this.phase === 'matchOver') next();
+      if (this.phase !== 'matchOver' || this.pauseMenu.isOpen) return;
+      this.setPhase('leaving');
+      next();
     };
     this.time.delayedCall(700, () => {
-      this.input.once('pointerdown', proceed);
-      this.input.keyboard.once('keydown-ENTER', proceed);
-      this.input.keyboard.once('keydown-SPACE', proceed);
+      // Taps on buttons (settings, pause, the pause menu) don't count.
+      this.input.on('pointerdown', (_pointer, over) => {
+        if (over.length === 0) proceed();
+      });
+      this.input.keyboard.on('keydown-ENTER', proceed);
+      this.input.keyboard.on('keydown-SPACE', proceed);
     });
   }
 
@@ -265,7 +309,9 @@ export class GameScene extends Phaser.Scene {
     const drawItems = (minDepth, maxDepth) => {
       for (const item of items) {
         if (item.zAhead <= minDepth || item.zAhead > maxDepth) continue;
-        drawPickup(g, this.river.projectAhead(this.cameraZ, item.zAhead, item.x), item.kind, this.clock + item.id);
+        const p = this.river.projectAhead(this.cameraZ, item.zAhead, item.x);
+        const lift = wakeSurfaceHeight(item.zAhead, item.x, boatDepth, this.boat.wake) * p.s;
+        drawPickup(g, { ...p, y: p.y - lift }, item.kind, this.clock + item.id);
       }
     };
 
@@ -276,6 +322,7 @@ export class GameScene extends Phaser.Scene {
     for (const r of this.riders) {
       r.screenX = riderPt.x + r.x * riderPt.s;
       r.screenY = riderPt.y - r.alt * riderPt.s;
+      r.screenTop = r.screenY - r.hurtBox('head').y2 * riderPt.s;
       drawRope(g, tow, r, riderPt);
     }
     for (const r of this.riders) drawRider(g, r, riderPt, this.clock);

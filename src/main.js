@@ -5,6 +5,8 @@ import { GameScene } from './scenes/GameScene.js';
 import { LadderScene } from './scenes/LadderScene.js';
 import { ControlsScene } from './scenes/ControlsScene.js';
 import { DifficultyScene } from './scenes/DifficultyScene.js';
+import { PlayerSelectScene } from './scenes/PlayerSelectScene.js';
+import { PasswordScene } from './scenes/PasswordScene.js';
 
 new Phaser.Game({
   type: Phaser.AUTO,
@@ -15,7 +17,10 @@ new Phaser.Game({
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
+    // The whole page container, not just the canvas, so DOM elements (the rider name box) stay visible.
+    fullscreenTarget: 'game',
   },
   input: { activePointers: 4 },
-  scene: [MenuScene, GameScene, LadderScene, ControlsScene, DifficultyScene],
+  dom: { createContainer: true }, // the rider name box on the rider select screen
+  scene: [MenuScene, GameScene, LadderScene, ControlsScene, DifficultyScene, PlayerSelectScene, PasswordScene],
 });

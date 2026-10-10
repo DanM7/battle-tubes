@@ -1,6 +1,9 @@
 import Phaser from 'phaser';
-import { WIDTH, HEIGHT, OPPONENTS, BOSS, SUB_BOSS, DIFFICULTIES } from '../config.js';
-import { isChampion, rivalProfile } from '../campaign.js';
+import { WIDTH, HEIGHT, BOSS, SUB_BOSS, DIFFICULTIES } from '../config.js';
+import { CHARACTERS } from '../characters.js';
+import { isChampion, rivalProfile, character, displayName, isUnlocked } from '../campaign.js';
+import { hasPasswordUnlock } from '../progress.js';
+import { addBackButton } from './ui.js';
 
 const FONT = 'Arial Black, Arial, sans-serif';
 const RUNG_W = 440;
@@ -8,7 +11,7 @@ const RUNG_H = 46;
 const RUNG_STEP = 54;
 const BOTTOM_RUNG_Y = 424;
 const FIGURE_MAX_PX = 38;
-const TALLEST_IN = Math.max(...Object.values(OPPONENTS).map((p) => p.heightIn));
+const TALLEST_IN = Math.max(...CHARACTERS.flatMap((c) => Object.values(c.stats).map((s) => s.heightIn)));
 const SKIN = 0xf1c27d;
 
 const textStyle = (size, color = '#ffffff') => ({
@@ -19,7 +22,7 @@ const textStyle = (size, color = '#ffffff') => ({
   strokeThickness: Math.max(3, Math.round(size / 6)),
 });
 
-// Between-match screen: every rival by name and height, defeated ones in green,
+// Between-match screen: every rival by name, defeated ones in green,
 // the next one highlighted, and the boss always waiting at the top. Figures share
 // one scale across both modes' rosters.
 export class LadderScene extends Phaser.Scene {
@@ -29,6 +32,7 @@ export class LadderScene extends Phaser.Scene {
 
   init(data) {
     this.campaign = data.campaign;
+    this.unlocked = data.unlocked ?? null; // OPPONENTS key just beaten for the first time
   }
 
   create() {
@@ -43,27 +47,43 @@ export class LadderScene extends Phaser.Scene {
     const { year, label } = DIFFICULTIES[campaign.difficulty];
     this.add.text(WIDTH - 16, 16, `${year} (${label})`, textStyle(16, '#ffdd55')).setOrigin(1, 0);
     this.add.text(WIDTH / 2, 76, this.headline(champion), textStyle(18)).setOrigin(0.5);
+    const newRiders = CHARACTERS.filter(
+      (c) =>
+        c.unlock &&
+        character(c.unlock.beat).nickname === this.unlocked &&
+        !hasPasswordUnlock(c.id) &&
+        isUnlocked(campaign.difficulty, c),
+    );
+    if (newRiders.length > 0) {
+      const names = newRiders.map((c) => displayName(c, campaign.difficulty).toUpperCase()).join(' & ');
+      const unlockText = this.add.text(WIDTH / 2, 104, `NEW RIDER UNLOCKED: ${names}`, textStyle(16, '#7dff7d')).setOrigin(0.5);
+      this.tweens.add({ targets: unlockText, scale: 1.08, yoyo: true, repeat: -1, duration: 500 });
+    }
 
     this.drawLadder(champion);
 
     if (!champion) {
-      const next = campaign.order[campaign.rung];
-      this.add.text(WIDTH / 2, 470, OPPONENTS[next].blurb, textStyle(16, '#e8f6ff')).setOrigin(0.5);
+      const next = rivalProfile(campaign, campaign.order[campaign.rung]);
+      this.add.text(WIDTH / 2, 470, next.style, textStyle(16, '#e8f6ff')).setOrigin(0.5);
     }
-    const prompt = champion ? 'Tap or press Enter for the menu' : 'Tap or press Enter to ride  -  Esc for menu';
+    const prompt = champion ? 'Tap or press Enter for the menu' : 'Tap or press Enter to ride  -  Esc to change rider';
     const promptText = this.add.text(WIDTH / 2, 510, prompt, textStyle(18)).setOrigin(0.5);
     this.tweens.add({ targets: promptText, alpha: 0.4, yoyo: true, repeat: -1, duration: 600 });
 
+    // Back to rider select. An unfinished ladder goes along, so picking a rider there
+    // carries on from the same rung.
+    addBackButton(this, 'PlayerSelect', { difficulty: campaign.difficulty, campaign: champion ? null : campaign });
     const proceed = () => {
       if (champion) this.scene.start('Menu');
       else this.scene.start('Game', { mode: '1p', campaign });
     };
     this.time.delayedCall(400, () => {
-      this.input.once('pointerdown', proceed);
+      this.input.on('pointerdown', (pointer, over) => {
+        if (over.length === 0) proceed();
+      });
       this.input.keyboard.once('keydown-ENTER', proceed);
       this.input.keyboard.once('keydown-SPACE', proceed);
     });
-    this.input.keyboard.once('keydown-ESC', () => this.scene.start('Menu'));
   }
 
   headline(champion) {
@@ -99,9 +119,7 @@ export class LadderScene extends Phaser.Scene {
       const profile = rivalProfile(this.campaign, name);
       this.drawFigure(g, left + 26, y + RUNG_H / 2 - 4, profile);
 
-      const height = formatHeight(profile.heightIn);
-      const nameText = this.add.text(left + 52, y, profile.name.toUpperCase(), textStyle(22)).setOrigin(0, 0.5);
-      this.add.text(nameText.x + nameText.width + 12, y + 2, height, textStyle(15, '#e8f6ff')).setOrigin(0, 0.5);
+      this.add.text(left + 52, y, profile.name.toUpperCase(), textStyle(22)).setOrigin(0, 0.5);
 
       const role = { [BOSS]: 'FINAL BOSS', [SUB_BOSS]: 'SUB-BOSS' }[name];
       const tag = defeated ? 'DEFEATED' : next ? (role ? `NEXT UP: ${role}` : 'NEXT UP') : role ?? `RUNG ${i + 1}`;
@@ -122,8 +140,4 @@ export class LadderScene extends Phaser.Scene {
     g.lineStyle(1, 0xffffff, 0.8);
     g.strokeRect(centerX - bodyW / 2, footY - bodyH, bodyW, bodyH);
   }
-}
-
-function formatHeight(inches) {
-  return `${Math.floor(inches / 12)}'${inches % 12}"`;
 }

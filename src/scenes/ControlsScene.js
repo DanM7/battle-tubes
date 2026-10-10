@@ -29,7 +29,7 @@ const SECTIONS = [
       'Boat turns fling both riders the opposite way. Leaning adds to or fights the fling.',
       'Where the river narrows you can be pushed into the shore: scraping drains balance.',
       'Steer into floating health kits: +10 or +25 to both balance and tube air.',
-      'At MEDIUM and FULL THROTTLE the boat throws up wake ridges. Cross one fast to jump.',
+      'At MEDIUM and FULL THROTTLE the water between the wakes rises. Cut back in over a crest fast to jump.',
       'Jump clean over your rival to switch sides, or come down on top of them for a STOMP.',
     ],
   },
@@ -37,13 +37,16 @@ const SECTIONS = [
     title: 'KEYBOARD',
     lines: [
       '1 Player:  ← / → lean    ↓ duck    R punch    F mid kick    V low kick',
-      '2 Players:  P1  A / D lean, S duck, R / F / V      P2  ← / → lean, ↓ duck, I / K / M (or numpad 8 / 5 / 2)',
-      'Esc returns to the menu.',
+      'Rider select:  arrows choose a rider, Enter to edit it, Enter again to ride.    2 Players: coming soon.',
+      'P pauses.    Esc returns to the menu.',
     ],
   },
   {
     title: 'TOUCH',
-    lines: ['◀ ▶ lean and ▼ duck on the left    HI / MID / LOW on the right'],
+    lines: [
+      '◀ ▶ lean and ▼ duck on the left    HI / MID / LOW on the right',
+      'Gear (under your name) opens settings, including Debug Mode for turn and speed hints.    ❚❚ pauses.',
+    ],
   },
 ];
 

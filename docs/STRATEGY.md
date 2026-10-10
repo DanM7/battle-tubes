@@ -14,7 +14,7 @@ How to beat the CPU on the ladder, built from the current controls and tuning
 | Low kick (tube) | V | LOW |
 | Dodge | Tap lean **away** from the attacker just before the hit lands | same |
 
-You start every round as the left rider (red) with your opponent on your right.
+You start every round as the left rider with your opponent on your right.
 Tubes can't pass through each other; they bump and drift apart. The only way to
 switch sides is to jump clean over your opponent off the wake.
 
@@ -53,40 +53,46 @@ Distances are center-to-center between the two tubes. Tubes touch at **180**.
 
 ### Boat speed and the wake
 
-The boat changes speed every 7–13 seconds. The gauge under the turn banner shows
-the current speed and flashes **SPEEDING UP!** or **SLOWING DOWN** about 2.5 seconds
-before a change. Every round starts slow.
+The boat changes speed every 7–13 seconds, and every round starts slow. By default
+you judge the speed from how fast the banks rush past and how big the wake is. With
+**Debug Mode** on (gear button under P1's name), a speed gauge at the top shows the
+current speed and flashes **SPEEDING UP!** or **SLOWING DOWN** about 2.5 seconds
+before a change.
 
-In 1 Player you pick a mode first. **1999 (Easy)** only uses slow and medium speeds,
-so the water is flat or has a small wake and jumps are rare. **2010 (Hard)** adds full
-throttle, with big wakes, big air and stomps. 2 Players always uses all three speeds.
+In 1 Player you pick a rider, then a mode. **1999 (Easy)** only uses slow and medium speeds,
+so the water is flat or has a small wake and jumps are rare. **2010 (Hard)** only
+stays slow for the first 3–5 seconds of each round, then switches between medium and
+full throttle and never slows back down until the next round: big wakes, big air and
+stomps. That slow opening is the calmest water you'll get, so use it to land early
+damage. (2 Players is coming soon.)
 
-1999 has its own, shorter crew, and you're shorter too (5'3" instead of 5'8"). Each
-1999 rider fights exactly like their 2010 counterpart, so the scouting reports below
-still apply.
+1999 has its own, shorter crew, and your rider is shorter too. Each 1999 rider
+fights exactly like their 2010 counterpart, so the scouting reports below still apply.
 
 | 2010 | 1999 | Style |
 | --- | --- | --- |
-| Burton (6'5") | Mike (5'8") | Rammer |
-| Chillo (6'1") | Billy (5'5") | Rookie |
-| Barf (5'9") | Dan (5'7") | Sub-boss: mixes the four styles above |
+| Burton (6'2") | Mike (5'8") | Rammer |
+| Chillo (6'0") | Billy (5'5") | Rookie |
+| Barf (5'10") | Dan (5'7") | Sub-boss: mixes the four styles above |
 | Moni (5'9") | RJ (5'2") | Passive strafer |
-| Franzi (5'4") | Rob (5'0") | Close-range spammer |
-| B-Nap (5'0") | Adam (4'8") | Final boss |
-| You (5'8") | You (5'3") | |
+| Franzi (5'8") | Rob (5'0") | Close-range spammer |
+| B-Nap (5'7") | Adam (4'8") | Final boss |
 
-| Speed | Wake ridges | Turn fling | Jumps |
+| Speed | Wake | Turn fling | Jumps |
 | --- | --- | --- | --- |
 | Slow | None (flat water) | 1x | No |
 | Medium | Small | 1.15x | Only with a very fast slide |
-| Full throttle | Big | 1.3x | Any fast slide over a crest |
+| Full throttle | Big | 1.3x | Any fast cut back in over a crest |
 
-- **The ridges** sit about two tube-widths either side of the centerline, just
-  outside where you start. Riding up one tilts you and slowly slides you back down.
-- **Jumping:** cross a crest with enough sideways speed and you launch. The faster
-  you're moving, the higher and farther you fly. Turns, knockback and dodges all give
-  you that speed. A turn flinging you outward and then the rope swinging you back in
-  is the classic launch.
+- **The wake** raises all the water between its two crests, which sit about two
+  tube-widths either side of the centerline, just outside where you start. Between
+  the crests you ride high and level. Past a crest, the outer face tilts you and
+  slides you down and away to the flat water outside; the rope pulls you back.
+- **Jumping:** ride up an outer face and over the crest with enough sideways speed
+  and you launch. Heading out over a crest never launches you; you just slide down
+  the face. The faster you're moving, the higher and farther you fly. Turns,
+  knockback and dodges all give you that speed. A turn flinging you outward and then
+  the rope swinging you back in is the classic launch.
 - **In the air** you can't attack or be hit, can't grab health kits, and only have
   a little lean control.
 - **Going over:** if you're above your opponent's head while you pass over them, you
@@ -94,24 +100,56 @@ still apply.
 - **STOMP:** come down mostly on top of them, after having cleared their head, and
   they lose **30 balance and 15 tube air**. That's more than any single attack.
   Glancing landings just bump off.
-- Turns at full throttle fling harder, and the turn banner appears from farther away
-  to give you the same reaction time.
+- Turns at full throttle fling harder and arrive sooner. (In Debug Mode the turn
+  banner appears from farther away to give you the same reaction time.)
+
+### Choosing your rider
+
+You pick the mode first, then your rider, because each mode has its own crew. The top
+row of the grid is your own riders: tap a **+** to make one (up to 4 per mode), then
+set their name, height (4'6" to 6'6"), grip and trunks. They're saved in the browser.
+Every opponent from that mode is on the grid below, locked until you beat them in that
+mode (beating Billy in 1999 doesn't unlock Chillo in 2010). Jeff, a bonus rider who
+isn't on the ladder, unlocks in both modes once you've beaten the final boss in both
+1999 and 2010. Every unlockable rider also has a password: enter it on the main menu's
+**Password** screen to unlock them in both modes. Every opponent's name, colors,
+height, grip, description and unlock rule are in `src/characters.js`.
+
+Riders are a trade between **reach** (height) and **grip** (how much damage you take).
+Trunks color is cosmetic. Between matches, **Back** on the ladder screen returns you to
+rider select to switch riders; you keep your place on the ladder.
+
+- **Height:** each inch adds a little under 1% to every attack's reach. A new custom
+  rider starts at 5'8" in 2010 and 5'3" in 1999, the baseline for the reach numbers
+  in this guide.
+- **Grip:** grip 3 takes normal damage. Each point above cuts damage taken by 6%
+  (grip 5: -12%); each point below adds 6% (grip 1: +12%).
+- **Tall and loose** can sit at the edge of an opponent's range and still land kicks,
+  but loses trades up close.
+- **Short and sticky** has to get close, so the opponents who keep their distance
+  (Moni, and Barf when he's mimicking her) are the hardest fights. In exchange, every
+  hit, scrape and stomp hurts less.
+- **Unlocked opponents** play with their own height, grip and weight (Burton keeps
+  his 1.8x weight in bumps; B-Nap has grip 5). You can end up fighting your own twin
+  on the ladder.
 
 ### Height and weight
 
 Taller riders reach a little farther with every attack; shorter riders a little less.
-You can still hit anyone: attacks aim at the target's own head and body, and ducking
-works against everyone.
+Taller riders also have bigger hitboxes. You can still hit anyone: attacks aim at the
+target's own head and body, and ducking works against everyone. The game doesn't show
+heights; the ladder figures are drawn to scale, and these are the numbers behind them.
 
-| 2010 rider | Height | Reach vs you (5'8") | Notes |
+| 2010 rider | Height | Reach vs a 5'8" rider | Notes |
 | --- | --- | --- | --- |
-| Burton | 6'5" | +8% (low kick ~390) | 1.8x heavier: shrugs off knockback and wins bumps |
-| Chillo | 6'1" | +4% | |
-| Barf, Moni | 5'9" | +1% | |
-| Franzi | 5'4" | -4% | |
-| B-Nap | 5'0" | -7% (punch ~240) | Shortest reach, so he makes up for it with timing |
+| Burton | 6'2" | +5% (low kick ~380) | 1.8x heavier: shrugs off knockback and wins bumps |
+| Chillo | 6'0" | +4% | |
+| Barf | 5'10" | +3% | |
+| Moni | 5'9" | +1% | |
+| Franzi | 5'8" | even | |
+| B-Nap | 5'7" | -1% | Shortest on the 2010 ladder, but only just |
 
-| 1999 rider | Height | Reach vs you (5'3") |
+| 1999 rider | Height | Reach vs a 5'3" rider |
 | --- | --- | --- |
 | Mike | 5'8" | +5% |
 | Dan | 5'7" | +4% |
@@ -135,8 +173,9 @@ It's **positioning, timing, reading the road, and knowing your rival**.
   catching a puncher one-handed with a low kick.
 - **Read the road ahead.** One Road Rash FAQ author mapped every tenth of a mile of
   every track as left, right or straight so he always knew what was coming
-  ([Road Rash guide][rr1-faq]). Battle Tubes shows bends on screen and flashes
-  "TURN AHEAD" before the boat turns. Use that warning.
+  ([Road Rash guide][rr1-faq]). In Battle Tubes, watch the river bend up ahead: by
+  the time the bend reaches the boat, you should already be leaning. (Debug Mode
+  adds a "BOAT TURNING" banner if you want the warning spelled out.)
 - **Know who you're fighting.** Road Rash showed the nearest rival's name so you could
   decide whether to engage. Tough riders were better kicked away than fought, and the
   AI would drop back when its health was low and return once recovered
@@ -231,21 +270,21 @@ Each rung's CPU reacts faster and attacks more often than the one before. Each
 rider's personality decides **how** they fight. The reports below are in ladder
 order.
 
-### Chillo: the rookie idiot (6'1")
+### Chillo: the rookie idiot (6'0")
 Wobbles back and forth at no fixed distance, swings all three attacks evenly, and
 **often attacks when you're nowhere near him**. Barely defends. Doesn't ram you or
 retreat.
 - Let him whiff. Every swing at empty water is free recovery time for you.
 - Punch freely: Chillo rarely ducks. Good practice for duck-then-low-kick timing.
 
-### Franzi: the close-range spammer (5'4")
-Sits tube to tube (~190) and **attacks nonstop**, mostly punches. Her reach is short
-and her defense is poor.
+### Franzi: the close-range spammer (5'8")
+Sits tube to tube (~190) and **attacks nonstop**, mostly punches. She's your height,
+so her reach matches yours, and her defense is poor.
 - She's always one-handed. Duck the punch and low kick her for double tube damage.
-- Back out past ~250 and her punches can't reach, while your mid and low kicks still
+- Back out past ~260 and her punches can't reach, while your mid and low kicks still
   can. She has to come back in, often mid-windup.
 
-### Burton: the rammer (6'5")
+### Burton: the rammer (6'2")
 The biggest rider on the river. He **leans into you constantly** to push you toward
 your bank. He's 1.8x heavier, so your bumps and knockback barely move him, and he
 leans harder than anyone. Mostly mid kicks, with the longest reach in the game.
@@ -268,7 +307,7 @@ Mostly mid kicks with some low kicks, almost never punches, and dodges often.
 - She dodges a lot, so don't overextend. Low kicks from max range wear down her tube,
   and air damage sticks even when she recovers balance.
 
-### Barf: the sub-boss (5'9", Dan in 1999)
+### Barf: the sub-boss (5'10", Dan in 1999)
 He has no style of his own. He **fights like one of the four riders below him**,
 Chillo, Franzi, Burton or Moni, and switches to a different one at random every 5–10
 seconds and at the start of every round. There's no on-screen tell, so you have to
@@ -277,7 +316,7 @@ read him.
 | If he's... | He's copying | Do this |
 | --- | --- | --- |
 | Swinging at empty water, drifting in and out | Chillo | Punch freely, let him whiff |
-| Glued to your tube, punching nonstop | Franzi | Duck and low kick, or back out past ~250 |
+| Glued to your tube, punching nonstop | Franzi | Duck and low kick, or back out past ~260 |
 | Leaning into you, shoving you toward your bank | Burton | Trade in wide water, brace before the narrows |
 | Hanging back (~320), mid kicking, retreating when hurt | Moni | Close in on her strafe, chase him into his bank |
 
@@ -289,8 +328,8 @@ read him.
   doesn't change. As "Burton" he shoves with normal weight, so his pushes are easier
   to resist than the real Burton's.
 
-### B-Nap: the final boss (5'0")
-The shortest reach on the ladder, but uses everything, reacts the most, takes 10%
+### B-Nap: the final boss (5'7")
+Just a hair shorter than you, but uses everything, reacts the most, takes 10%
 less damage, **retreats below 30 balance**, and goes after almost every health kit it
 can reach. He only shoves you when you're already near the bank in narrow water.
 - **Deny kits.** Get between B-Nap and the kit, or steer kits on your side into your
@@ -303,10 +342,10 @@ can reach. He only shoves you when you're already near the bank in narrow water.
 
 ## Quick checklist
 
-1. Read the turn banner. Left turn: attack. Right turn: brace. (This flips if you've
+1. Read the river ahead. Left bend: attack. Right bend: brace. (This flips if you've
    jumped to the right side.)
-2. Watch the speed gauge. At full throttle, look for a fast run over the crest at
-   your opponent.
+2. Feel the speed: fast banks and big ridges mean full throttle. Look for a fast run
+   over the crest at your opponent.
 3. Watch the banks. In narrow water, stay off your own shore.
 4. Duck punches, low kick the one-handed puncher.
 5. Dodge late, not early (one tap counts).
