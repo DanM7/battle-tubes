@@ -1,4 +1,4 @@
-import { ATTACKS, DODGE, GRIP } from './config.js';
+import { ATTACKS, DODGE, GRIP, ENDURANCE } from './config.js';
 
 // Checks the attacker's active attack against the defender. Returns null if nothing
 // happened this frame, otherwise one of:
@@ -27,11 +27,12 @@ export function resolveAttack(attacker, defender, time) {
   if (dodged(defender, attack)) {
     attack.whiffed = true;
     defender.vx += attack.dir * DODGE.impulse;
+    defender.spend(ENDURANCE.cost.dodge, time);
     return 'dodge';
   }
 
   const looseGrip = cfg.target === 'tube' && defender.isOneHanded;
-  defender.takeHit(cfg, attack.dir, time, looseGrip ? GRIP.oneHandedTubeDamageMultiplier : 1);
+  defender.takeHit(cfg, attack.dir, time, (looseGrip ? GRIP.oneHandedTubeDamageMultiplier : 1) * attack.power);
   return looseGrip ? 'looseGrip' : attack.type;
 }
 

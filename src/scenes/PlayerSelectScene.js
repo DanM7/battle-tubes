@@ -5,6 +5,7 @@ import { Rider } from '../rider.js';
 import { drawRider } from '../draw.js';
 import { newCampaign, riderOptions, customRiderOptions, isUnlocked, unlockText, displayName } from '../campaign.js';
 import { customRider, customName, newCustomRider, saveCustomRider, deleteCustomRider } from '../customRiders.js';
+import { enduranceRating, pointsLeft } from '../build.js';
 import { addBackButton } from './ui.js';
 
 const FONT = 'Arial Black, Arial, sans-serif';
@@ -22,19 +23,24 @@ const PANEL_CENTER_X = PANEL.x + PANEL.w / 2;
 const NAME_Y = PANEL.y + 30;
 const NAME_BOX = { w: 260, h: 40 };
 const STATS_X = 676;
-const HEIGHT_ROW_Y = 178;
-const GRIP_ROW_Y = 248;
+const LABEL_ABOVE = 30; // a stat's label sits this far above its row
+const HEIGHT_ROW_Y = 174;
+const GRIP_ROW_Y = 234;
+const ENDURANCE_ROW_Y = 292;
+const STYLE_Y = 316;
+const POINTS_Y = 322;
 const STEP_BUTTON = 32;
 const STEPPER_W = 224; // [-] value [+]
 const STEPPER_MID = STATS_X + STEPPER_W / 2;
-const DELETE_Y = 374;
+const DELETE_Y = 386;
+const GRIP_COLOR = 0x7dff7d;
+const ENDURANCE_COLOR = 0xff9f43;
 const PREVIEW = { x: 562, y: 366, s: 0.95 }; // where the preview tube sits on the water
 const SWATCH = 34;
 const SWATCH_GAP = 10;
 const SWATCH_Y = 450;
 const HIGHLIGHT = 0xffdd55;
 const LOCKED_ALPHA = 0.3;
-const CUSTOM_BLURB = 'Your own rider. Taller riders reach farther; more grip means less damage taken.';
 const MYSTERY_GRAY = 0x8a8f98;
 const MYSTERY_DARK = 0x5f646d;
 
@@ -274,13 +280,17 @@ export class PlayerSelectScene extends Phaser.Scene {
     this.previewG = this.add.graphics();
 
     const stat = (y, str, size, color) => this.add.text(STATS_X, y, str, textStyle(size, color)).setOrigin(0, 0.5);
-    stat(150, 'HEIGHT', 16, '#ffdd55');
+    stat(HEIGHT_ROW_Y - LABEL_ABOVE, 'HEIGHT', 16, '#ffdd55');
     this.heightText = stat(HEIGHT_ROW_Y, '', 28);
-    stat(218, 'GRIP STRENGTH', 16, '#ffdd55');
+    stat(GRIP_ROW_Y - LABEL_ABOVE, 'GRIP STRENGTH', 16, '#ffdd55');
     this.gripG = this.add.graphics();
+    stat(ENDURANCE_ROW_Y - LABEL_ABOVE, 'ENDURANCE', 16, '#ffdd55');
+    this.enduranceG = this.add.graphics();
     this.styleText = this.add
-      .text(STATS_X, 276, '', { ...textStyle(13, '#e8f6ff'), strokeThickness: 3, wordWrap: { width: PANEL.x + PANEL.w - STATS_X - 16 } })
+      .text(STATS_X, STYLE_Y, '', { ...textStyle(13, '#e8f6ff'), strokeThickness: 3, wordWrap: { width: PANEL.x + PANEL.w - STATS_X - 16 } })
       .setOrigin(0, 0);
+    this.pointsLabel = this.add.text(STEPPER_MID, POINTS_Y, 'BUILD POINTS LEFT', textStyle(14, '#ffdd55')).setOrigin(0.5);
+    this.pointsText = this.add.text(STEPPER_MID, POINTS_Y + 22, '', textStyle(20)).setOrigin(0.5);
 
     const left = STATS_X + STEP_BUTTON / 2;
     const right = STATS_X + STEPPER_W - STEP_BUTTON / 2;
@@ -445,10 +455,34 @@ export class PlayerSelectScene extends Phaser.Scene {
     this.setTrunks(palette[(current + dir + palette.length) % palette.length]);
   }
 
-  step(stat, dir) {
+  // The custom rider after one step of `stat`, or null if that's past its limits or budget.
+  stepped(stat, dir) {
     const r = this.customOf(this.slot.custom);
-    if (stat === 'height') this.editCustom({ heightIn: Phaser.Math.Clamp(r.heightIn + dir, CUSTOM.minHeightIn, CUSTOM.maxHeightIn) });
-    else this.editCustom({ grip: Phaser.Math.Clamp(r.grip + dir, 1, MAX_GRIP) });
+    const next =
+      stat === 'height'
+        ? { ...r, heightIn: Phaser.Math.Clamp(r.heightIn + dir, CUSTOM.minHeightIn, CUSTOM.maxHeightIn) }
+        : { ...r, grip: Phaser.Math.Clamp(r.grip + dir, 1, MAX_GRIP) };
+    if (next.heightIn === r.heightIn && next.grip === r.grip) return null;
+    return dir > 0 && pointsLeft(next) < 0 ? null : next;
+  }
+
+  step(stat, dir) {
+    const next = this.stepped(stat, dir);
+    if (next) return this.editCustom({ heightIn: next.heightIn, grip: next.grip });
+    if (dir > 0) this.flashPoints();
+  }
+
+  // Out of build points.
+  flashPoints() {
+    this.tweens.killTweensOf(this.pointsText);
+    this.pointsText.setScale(1).setColor('#ff6b6b');
+    this.tweens.add({
+      targets: this.pointsText,
+      scale: 1.3,
+      duration: 90,
+      yoyo: true,
+      onComplete: () => this.pointsText.setColor('#ffffff'),
+    });
   }
 
   // Changing anything about a custom rider saves it (so a + slot becomes a rider).
@@ -523,16 +557,22 @@ export class PlayerSelectScene extends Phaser.Scene {
     this.heightText.setText(s.mystery ? '??' : formatHeight(stats.heightIn));
     if (custom) this.heightText.setOrigin(0.5).setX(STEPPER_MID);
     else this.heightText.setOrigin(0, 0.5).setX(STATS_X);
-    if (s.mystery) this.drawGrip(MAX_GRIP, false, MYSTERY_GRAY);
-    else this.drawGrip(stats.grip, custom);
+    if (s.mystery) {
+      this.drawPips(this.gripG, GRIP_ROW_Y, MAX_GRIP, false, MYSTERY_GRAY);
+      this.drawPips(this.enduranceG, ENDURANCE_ROW_Y, MAX_GRIP, false, MYSTERY_GRAY);
+    } else {
+      this.drawPips(this.gripG, GRIP_ROW_Y, stats.grip, custom, GRIP_COLOR);
+      this.drawPips(this.enduranceG, ENDURANCE_ROW_Y, enduranceRating(stats.heightIn), custom, ENDURANCE_COLOR);
+    }
     this.steppers.forEach(({ stat, dir, rect, text }) => {
-      const value = stat === 'height' ? stats.heightIn : stats.grip;
-      const limit = stat === 'height' ? (dir < 0 ? CUSTOM.minHeightIn : CUSTOM.maxHeightIn) : dir < 0 ? 1 : MAX_GRIP;
-      const alpha = value === limit ? 0.4 : 1;
+      const alpha = custom && this.stepped(stat, dir) ? 1 : 0.4;
       rect.setVisible(custom).setAlpha(alpha);
       text.setVisible(custom).setAlpha(alpha);
     });
-    this.styleText.setText(s.mystery ? '' : custom ? CUSTOM_BLURB : s.c.style);
+    this.styleText.setText(s.mystery || custom ? '' : s.c.style);
+    this.pointsLabel.setVisible(custom);
+    this.pointsText.setVisible(custom);
+    if (custom) this.pointsText.setText(`${pointsLeft(stats)} OF ${CUSTOM.buildPoints}`);
     this.deleteButton.setVisible(this.isSaved);
     this.deleteText.setVisible(this.isSaved).setText(this.deleteArmed ? 'SURE?' : 'DELETE');
     this.previewG.setAlpha(locked && !s.mystery ? LOCKED_ALPHA : 1);
@@ -557,17 +597,18 @@ export class PlayerSelectScene extends Phaser.Scene {
     this.hint.setText(touch ? 'Tap + to make your own rider, or pick one, then READY!' : keys);
   }
 
-  drawGrip(grip, custom, color = 0x7dff7d) {
-    const g = this.gripG;
+  // A 1-to-5 stat as a row of boxes, `filled` of them lit; centered under the steppers for
+  // custom riders.
+  drawPips(g, y, filled, custom, color) {
     g.clear();
     const width = custom ? 24 : 30;
     const step = custom ? 28 : 36;
     const left = custom ? STEPPER_MID - (MAX_GRIP * step - (step - width)) / 2 : STATS_X;
     for (let i = 0; i < MAX_GRIP; i++) {
-      g.fillStyle(i < grip ? color : 0x000000, i < grip ? 1 : 0.4);
-      g.fillRoundedRect(left + i * step, GRIP_ROW_Y - 8, width, 16, 4);
+      g.fillStyle(i < filled ? color : 0x000000, i < filled ? 1 : 0.4);
+      g.fillRoundedRect(left + i * step, y - 8, width, 16, 4);
       g.lineStyle(2, 0xffffff, 0.8);
-      g.strokeRoundedRect(left + i * step, GRIP_ROW_Y - 8, width, 16, 4);
+      g.strokeRoundedRect(left + i * step, y - 8, width, 16, 4);
     }
   }
 

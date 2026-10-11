@@ -1,4 +1,4 @@
-import { PHYSICS, RIDER, ATTACKS, DODGE, BUMP, SHORE, WAKE, JUMP, STOMP } from './config.js';
+import { PHYSICS, RIDER, ATTACKS, DODGE, BUMP, SHORE, WAKE, JUMP, STOMP, ENDURANCE } from './config.js';
 import { wakeHeight, wakeSlope, wakeMaxSlope, crossedCrestInward } from './wake.js';
 
 const SCRAPE_TEXT_COOLDOWN = 1.5;
@@ -21,6 +21,8 @@ export class Rider {
     this.heightIn = heightIn;
     this.heightScale = heightIn / RIDER.baseHeightIn;
     this.reachScale = 1 + (this.heightScale - 1) * RIDER.reachPerHeight;
+    // Endurance costs are multiplied by this and recovery divided by it.
+    this.sizeFactor = 1 + (this.heightScale - 1) * ENDURANCE.perHeight;
     this.toughness = toughness;
     this.mass = mass;
     this.leanPower = leanPower;
@@ -41,6 +43,10 @@ export class Rider {
     this.wake = 0;
     this.balance = RIDER.maxBalance;
     this.air = RIDER.maxAir;
+    this.lowAir = false;
+    this.endurance = ENDURANCE.max;
+    this.lastSpendTime = -Infinity;
+    this.gassed = false;
     this.state = 'idle';
     this.stateTimer = 0;
     this.attack = null;
@@ -105,13 +111,58 @@ export class Rider {
     if (!this.isOff && time - this.lastDamageTime > RIDER.balanceRegenDelay) {
       this.balance = Math.min(RIDER.maxBalance, this.balance + RIDER.balanceRegen * dt);
     }
+    this.updateEndurance(dt, time);
+    this.updateLowAir();
     this.flash = Math.max(0, this.flash - dt);
   }
 
+  updateEndurance(dt, time) {
+    if (this.isOff) return;
+    if (this.ducking) this.spend(ENDURANCE.duckDrain * dt, time);
+    else if (time - this.lastSpendTime > ENDURANCE.regenDelay) {
+      this.endurance = Math.min(ENDURANCE.max, this.endurance + (ENDURANCE.regen / this.sizeFactor) * dt);
+    }
+    if (this.gassed && this.endurance >= ENDURANCE.gassedUntil) this.gassed = false;
+  }
+
+  spend(amount, time) {
+    this.endurance = Math.max(0, this.endurance - amount * this.sizeFactor);
+    this.lastSpendTime = time;
+    if (!this.gassed && this.endurance < ENDURANCE.gassedBelow) {
+      this.gassed = true;
+      this.events.push({ type: 'gassed' });
+    }
+  }
+
+  // 0 while endurance is at or above ENDURANCE.gassedBelow, rising to 1 as it runs out.
+  get fatigue() {
+    return Math.max(0, 1 - this.endurance / ENDURANCE.gassedBelow);
+  }
+
+  updateLowAir() {
+    const low = !this.isOff && this.air < RIDER.lowAir;
+    if (low && !this.lowAir) this.events.push({ type: 'lowAir' });
+    this.lowAir = low;
+  }
+
+  // A tired rider's attack is slower (`pace` multiplies windup and recovery) and weaker
+  // (`power` multiplies damage), as of when it was thrown.
   startAttack(type, time) {
     const cfg = ATTACKS[type];
-    this.attack = { type, dir: this.facing, startTime: time, windupEnd: time + cfg.windup, resolved: false, whiffed: false };
-    this.setState('windup', cfg.windup);
+    const pace = 1 + this.fatigue * (ENDURANCE.slowdown - 1);
+    const power = 1 - this.fatigue * (1 - ENDURANCE.power);
+    this.spend(ENDURANCE.cost[type], time);
+    this.attack = {
+      type,
+      dir: this.facing,
+      startTime: time,
+      windupEnd: time + cfg.windup * pace,
+      pace,
+      power,
+      resolved: false,
+      whiffed: false,
+    };
+    this.setState('windup', cfg.windup * pace);
   }
 
   setState(state, duration = 0) {
@@ -130,7 +181,7 @@ export class Rider {
         this.setState('active', cfg.active);
         break;
       case 'active':
-        this.setState('recovery', cfg.recovery + (this.attack.whiffed ? DODGE.whiffRecovery : 0));
+        this.setState('recovery', cfg.recovery * this.attack.pace + (this.attack.whiffed ? DODGE.whiffRecovery : 0));
         break;
       case 'recovery':
       case 'hitstun':

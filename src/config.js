@@ -47,6 +47,7 @@ export const RIDER = {
   startOffset: 220,
   maxBalance: 100,
   maxAir: 100,
+  lowAir: 35, // below this the tube flashes and "LOW AIR!" pops up
   balanceRegen: 4, // per second
   balanceRegenDelay: 1.5, // seconds after last damage
   // Heights: body/head hurtboxes scale with height / baseHeightIn, and reach grows
@@ -225,6 +226,22 @@ export const GRIP = {
   oneHandedTubeDamageMultiplier: 2,
 };
 
+// Endurance: spent by attacking, dodging and ducking, and recovers when you stop. Taller
+// riders spend more and recover slower. Running low leaves you "gassed": your attacks
+// wind up and recover slower and hit softer. It never knocks you off by itself.
+export const ENDURANCE = {
+  max: 100,
+  cost: { high: 12, mid: 14, low: 16, dodge: 10 }, // per attack thrown / successful dodge
+  duckDrain: 8, // per second while holding duck
+  regen: 16, // per second
+  regenDelay: 0.6, // seconds after spending before it starts coming back
+  perHeight: 1.2, // a 10% taller rider spends 12% more and recovers 12% slower
+  gassedBelow: 30, // gassed under this; the penalties grow until endurance hits 0
+  gassedUntil: 50, // and stays gassed until it recovers to this
+  slowdown: 1.5, // windup and recovery multiplier at 0 endurance
+  power: 0.6, // damage multiplier at 0 endurance
+};
+
 // Dodge: tap lean AWAY from the attacker within `window` seconds of the attack's
 // windup ending. Only your first away-tap after the attack starts counts.
 export const DODGE = {
@@ -266,6 +283,8 @@ export const CPU_SKILL_BY_RUNG = [
 //   greed:             chance it chases a health item it can reach
 //   ram:               false | 'nearShore' (shoves when you're near the shore) | 'always'
 //   retreatBelow:      backs off to recover when its balance drops below this (0 = never)
+//   rest:              stops attacking to get its breath back when its endurance drops
+//                      below this, until it has recovered 30 more (0 = never)
 //   mimics:            instead of its own style, fights like one of these OPPONENTS
 //                      at a time, picking a new one at random every styleHold seconds
 const PERSONA_DEFAULTS = {
@@ -273,6 +292,7 @@ const PERSONA_DEFAULTS = {
   sloppiness: 0,
   ram: false,
   retreatBelow: 0,
+  rest: 0,
 };
 
 export const OPPONENTS = {
@@ -297,6 +317,7 @@ export const OPPONENTS = {
     counter: 0.5,
     greed: 0.5,
     retreatBelow: 40,
+    rest: 45,
   },
   Franzi: {
     ...PERSONA_DEFAULTS,
@@ -316,6 +337,7 @@ export const OPPONENTS = {
     counter: 0.6,
     greed: 0.4,
     ram: 'always',
+    rest: 30,
   },
   Barf: {
     ...PERSONA_DEFAULTS,
@@ -332,6 +354,7 @@ export const OPPONENTS = {
     greed: 0.9,
     ram: 'nearShore',
     retreatBelow: 30,
+    rest: 40,
   },
 };
 
@@ -347,6 +370,11 @@ export const SUB_BOSS = LADDER_ORDER.at(-2);
 export const GRIP_PER_POINT = 0.06; // damage taken per grip point away from 3
 export const MAX_GRIP = 5;
 
+// Height bands, shortest first, by the tallest height (inches) in each. A rider's band
+// sets their endurance rating on the select screen (5 for the shortest band, 1 less per
+// band) and what their height costs a custom rider (0 for the shortest, 1 more per band).
+export const HEIGHT_BANDS = [60, 65, 70, 74, Infinity]; // up to 5'0", 5'5", 5'10", 6'2", taller
+
 // Trunks colors offered on the rider select screen.
 export const TRUNKS_COLORS = [0xd62828, 0xf77f00, 0xfcd34d, 0x84cc16, 0x14b8a6, 0x1d4ed8, 0xec4899, 0x1f2937];
 
@@ -359,6 +387,9 @@ export const CUSTOM = {
   maxHeightIn: 78, // 6'6"
   heightIn: { easy: 63, hard: 68 }, // a new rider's starting height in each mode
   grip: 3, // a new rider's starting grip
+  // Height and grip share these: height costs its HEIGHT_BANDS band (0-4), grip costs
+  // grip - 1 (0-4). Opponents in characters.js don't have to fit.
+  buildPoints: 5,
   shirts: [0xe04848, 0x8e44ad, 0x16a085, 0x00b4d8], // shirt color for each slot
   trunks: [0x1d4ed8, 0xd62828, 0xfcd34d, 0x1f2937], // a new rider's starting trunks for each slot
 };

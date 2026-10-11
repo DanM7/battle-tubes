@@ -148,7 +148,8 @@ export function drawRider(g, r, p, time) {
   }
 
   const tube = r.hurtBox('tube');
-  fill(tube, r.air > 0 ? 0x1f1f1f : 0x5a5a5a);
+  const lowAirFlash = r.lowAir && Math.sin(time * 10) > 0;
+  fill(tube, r.air <= 0 ? 0x5a5a5a : lowAirFlash ? 0x9b2226 : 0x1f1f1f);
   outline(tube, r.isOneHanded ? ONE_HANDED_OUTLINE : HITBOX_OUTLINE);
 
   if (r.onShore) {

@@ -39,6 +39,7 @@ const KNOCKOFF_TEXT = {
 
 const BUMP_FEEDBACK_SPEED = 250;
 const BIG_AIR_LAUNCH = 650;
+const STATUS_TEXT_LIFT = 34;
 
 // Round-start taunts: seconds into the countdown when P1 and then P2 speak, and how
 // long the bubbles take to fade once the fight starts.
@@ -229,6 +230,8 @@ export class GameScene extends Phaser.Scene {
         if (e.type === 'slam') this.floatText(r, 'SLAMMED!', '#ffb347');
         if (e.type === 'scrape') this.floatText(r, 'SCRAPE!', '#e0c48a');
         if (e.type === 'jump') this.floatText(r, e.launch >= BIG_AIR_LAUNCH ? 'BIG AIR!' : 'AIR!', '#bfe9ff');
+        if (e.type === 'gassed') this.floatText(r, 'GASSED!', '#ff9f43', STATUS_TEXT_LIFT);
+        if (e.type === 'lowAir') this.floatText(r, 'LOW AIR!', '#ff6b6b', STATUS_TEXT_LIFT);
         if (e.type === 'off') {
           this.floatText(r, KNOCKOFF_TEXT[e.reason], '#ffffff');
           this.cameras.main.shake(220, 0.008);
@@ -329,9 +332,10 @@ export class GameScene extends Phaser.Scene {
     drawItems(0, RIDER_Z);
   }
 
-  floatText(rider, message, color) {
+  // `above` lifts it clear of a hit message popping up at the same moment.
+  floatText(rider, message, color, above = 0) {
     const text = this.add
-      .text(rider.screenX, rider.screenY - 100, message, {
+      .text(rider.screenX, rider.screenY - 100 - above, message, {
         fontFamily: 'Arial Black, Arial, sans-serif',
         fontSize: '22px',
         color,

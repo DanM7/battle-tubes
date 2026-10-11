@@ -2,10 +2,12 @@
 // Each mode has CUSTOM.slots slots; an empty slot is null. A rider is
 // { name, color, trunks, heightIn, grip }.
 import { CUSTOM } from './config.js';
+import { fitBudget } from './build.js';
 
 const KEY = 'battle-tubes-custom';
 
-const fit = (list) => Array.from({ length: CUSTOM.slots }, (_, i) => list?.[i] ?? null);
+const fit = (list) =>
+  Array.from({ length: CUSTOM.slots }, (_, i) => (list?.[i] ? fitBudget(list[i]) : null));
 
 const riders = load();
 

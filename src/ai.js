@@ -8,6 +8,7 @@ const ATTACK_TYPES = ['high', 'mid', 'low'];
 
 const RETREAT_DISTANCE = 480;
 const RETREAT_RECOVERED_MARGIN = 30;
+const REST_RECOVERED_MARGIN = 30;
 const RAM_TRIGGER = 200; // 'nearShore' rammers shove once you're this close to your edge
 const RAM_OVERLAP = 40; // rammers aim this far inside tube contact so they keep pushing
 const STRAFE_SPEED = 1.3; // radians per second
@@ -53,6 +54,7 @@ export class CpuController {
     const p = mimics ? OPPONENTS[this.style] : this.base;
     this.profile = p;
     this.retreating = false;
+    this.resting = false;
     this.dodgeChance = clamp01(this.skill.reaction * p.defense);
     this.duckChance = clamp01(this.skill.reaction * p.defense * 1.2);
     this.counterChance = clamp01(this.skill.reaction * p.counter);
@@ -96,6 +98,10 @@ export class CpuController {
     const error = targetX - me.x;
     if (error > CPU_DEADZONE) out.right = true;
     else if (error < -CPU_DEADZONE) out.left = true;
+
+    const rest = this.profile.rest;
+    if (rest > 0) this.resting = me.endurance < (this.resting ? rest + REST_RECOVERED_MARGIN : rest);
+    if (this.resting) return out;
 
     if (this.counterAt !== null && time >= this.counterAt) {
       this.counterAt = null;

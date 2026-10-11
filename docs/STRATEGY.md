@@ -30,7 +30,17 @@ Distances are center-to-center between the two tubes. Tubes touch at **180**.
 
 - **Two ways to lose:** balance hits 0 (knocked off) or tube air hits 0 (popped).
 - **Balance regenerates** 4/s once you've gone 1.5 s without damage. **Air never
-  regenerates**; only health kits restore it.
+  regenerates**; only health kits restore it. Your tube is drawn smaller as it loses
+  air and flashes red ("LOW AIR!") below 35.
+- **Endurance** (the orange bar under balance) pays for everything you do. Out of 100:
+  a punch costs 12, a mid kick 14, a low kick 16, a successful dodge 10, and holding
+  duck drains 8/s. It comes back at 16/s once you've gone 0.6 s without spending any.
+  An attack every 1.5 s is sustainable for an average rider; mashing empties the bar
+  in under 4 seconds.
+- **Gassed:** below 30 endurance the bar flashes red ("GASSED!") and your attacks get
+  slower and weaker, down to 1.5x windup and recovery and 60% damage at 0. You stay
+  gassed until it's back to 50. Running out never knocks you off, but a gassed rider
+  is easy to punish.
 - **Punching is one-handed** from windup through recovery (your tube outline turns
   orange). A low kick landing in that window does double tube damage.
 - **Duck** drops your head under punches. Mid and low kicks still hit you, and you
@@ -115,8 +125,25 @@ isn't on the ladder, unlocks in both modes once you've beaten the final boss in 
 **Password** screen to unlock them in both modes. Every opponent's name, colors,
 height, grip, description and unlock rule are in `src/characters.js`.
 
-Riders are a trade between **reach** (height) and **grip** (how much damage you take).
-Trunks color is cosmetic. Between matches, **Back** on the ladder screen returns you to
+Riders are a trade between **reach** (height), **endurance** (shorter is better) and
+**grip** (how much damage you take). Rider select shows each rider's grip and endurance
+as 1 to 5 boxes. Trunks color is cosmetic.
+
+Custom riders share **5 build points** between height and grip (`CUSTOM.buildPoints`
+in `src/config.js`). Grip costs its value minus 1 (grip 1 is free, grip 5 costs 4).
+Height costs by band, and the same band sets the endurance rating:
+
+| Height | Cost | Endurance |
+| --- | --- | --- |
+| 4'6"–5'0" | 0 | 5 |
+| 5'1"–5'5" | 1 | 4 |
+| 5'6"–5'10" | 2 | 3 |
+| 5'11"–6'2" | 3 | 2 |
+| 6'3"–6'6" | 4 | 1 |
+
+So a 6'6" rider can have grip 2 at most, and grip 5 means 5'5" or shorter. The +
+buttons dim when you can't afford the next step. Opponents don't follow the budget:
+B-Nap's 5'7" with grip 5 is a boss build. Between matches, **Back** on the ladder screen returns you to
 rider select to switch riders; you keep your place on the ladder.
 
 - **Height:** each inch adds a little under 1% to every attack's reach. A new custom
@@ -124,8 +151,12 @@ rider select to switch riders; you keep your place on the ladder.
   in this guide.
 - **Grip:** grip 3 takes normal damage. Each point above cuts damage taken by 6%
   (grip 5: -12%); each point below adds 6% (grip 1: +12%).
+- **Endurance and size:** every endurance cost scales with height and recovery scales
+  the other way, about 1.2% per 1% of height. Compared with a 5'9" rider, a 6'6" rider
+  spends about 18% more and recovers 15% slower; a 4'8" rider spends about 23% less and
+  recovers faster.
 - **Tall and loose** can sit at the edge of an opponent's range and still land kicks,
-  but loses trades up close.
+  but loses trades up close and has to pace their attacks.
 - **Short and sticky** has to get close, so the opponents who keep their distance
   (Moni, and Barf when he's mimicking her) are the hardest fights. In exchange, every
   hit, scrape and stomp hurts less.
@@ -247,6 +278,10 @@ water it throws you into the bank. You're always on the left, which means:
 - **Disengage like Road Rash AI.** If your balance is low, get out past 370 and let it
   regenerate. Keep off your shore while you do (scraping blocks regeneration).
 - **Health kits restore air too.** A big kit can save a nearly popped tube.
+- **Pace yourself.** Throw fewer, better-timed attacks and let endurance refill between
+  them. Dodging is cheaper than attacking but not free, so a pure defensive game wears
+  you down too. When a rival is gassed, their attacks are slow enough to duck or dodge
+  on reaction: that's the time to press.
 
 ### Health kit control
 Riders can't pass each other, so **a kit on your side of your opponent is yours** if
@@ -274,7 +309,8 @@ order.
 Wobbles back and forth at no fixed distance, swings all three attacks evenly, and
 **often attacks when you're nowhere near him**. Barely defends. Doesn't ram you or
 retreat.
-- Let him whiff. Every swing at empty water is free recovery time for you.
+- Let him whiff. Every swing at empty water is free recovery time for you, and he
+  never rests, so his wild swinging soon leaves him gassed.
 - Punch freely: Chillo rarely ducks. Good practice for duck-then-low-kick timing.
 
 ### Franzi: the close-range spammer (5'8")
@@ -283,6 +319,10 @@ so her reach matches yours, and her defense is poor.
 - She's always one-handed. Duck the punch and low kick her for double tube damage.
 - Back out past ~260 and her punches can't reach, while your mid and low kicks still
   can. She has to come back in, often mid-windup.
+- **She never stops to rest**, so she gasses within the first few seconds of a round
+  and stays gassed. Survive the opening flurry by ducking and keeping your distance
+  (don't burn your own endurance trading with her), then go after her once her
+  attacks slow down.
 
 ### Burton: the rammer (6'2")
 The biggest rider on the river. He **leans into you constantly** to push you toward
@@ -295,11 +335,14 @@ leans harder than anyone. Mostly mid kicks, with the longest reach in the game.
   range.
 - A right turn in narrow water plus Burton pushing is the most dangerous moment in the
   game. Brace early.
+- He's big, so he tires fast. He eases off his attacks below 30 endurance (he keeps
+  shoving), which is your window to hit back.
 
 ### Moni: the passive strafer (5'9")
 Keeps her distance (~320, outside punch range) and **slides in and out** around it.
 Mostly mid kicks with some low kicks, almost never punches, and dodges often.
-**Backs off when her balance drops below 40** and won't attack while retreating.
+**Backs off when her balance drops below 40** and won't attack while retreating. She
+also paces herself, pausing her attacks whenever her endurance drops below 45.
 - Time your approach for when her strafe swings toward you, then punch: at punch
   range she has no fast answer.
 - When she retreats she drifts toward her own (right) bank. In narrow water, follow
@@ -335,6 +378,7 @@ can reach. He only shoves you when you're already near the bank in narrow water.
 - **Deny kits.** Get between B-Nap and the kit, or steer kits on your side into your
   own tube. Every kit you take is one he can't.
 - When he retreats he stops attacking, so chase him into his shore and keep him pinned.
+  He also pauses his attacks to recover below 40 endurance and rarely gets gassed.
 - Tube damage is your best bet: it doesn't regenerate and he can only refill it with
   kits you're denying.
 - Expect more ducks and dodges. Throw fewer, better-timed attacks, ideally right after
@@ -351,6 +395,7 @@ can reach. He only shoves you when you're already near the bank in narrow water.
 5. Dodge late, not early (one tap counts).
 6. Hold 255–370 against punchers, close in against kickers.
 7. Back off past 370 to regenerate. Grab kits on your side.
+8. Watch the orange bar. Don't swing yourself into GASSED; punish rivals who do.
 
 [rr1-manual]: https://oldgamesdownload.com/wp-content/uploads/Road_Rash_Manual_Genesis_EN.pdf
 [rr1-faq]: https://gamefaqs.gamespot.com/genesis/586425-road-rash/faqs/55386

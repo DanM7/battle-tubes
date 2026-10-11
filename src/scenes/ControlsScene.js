@@ -10,7 +10,7 @@ const SECTIONS = [
     title: 'HOW TO WIN',
     lines: [
       'Knock your opponent off their tube: drain their BALANCE or their TUBE AIR to zero.',
-      'Best of 3 rounds. Balance slowly recovers; tube air does not.',
+      'Best of 3 rounds. Balance slowly recovers; tube air does not (the tube flashes red when it runs low).',
     ],
   },
   {
@@ -19,7 +19,8 @@ const SECTIONS = [
       'HI  punch to the head: biggest balance hit, shortest reach.',
       'MID  kick to the body: balance damage, still hits a ducking rider.',
       'LOW  kick at the tube: drains air. Double damage while they punch (one hand on the tube).',
-      'Taller riders reach a little farther.',
+      'Attacks, dodges and ducking cost ENDURANCE, which recovers when you ease off.',
+      'Run low and you are GASSED: slower, weaker attacks. Taller riders reach farther but tire faster.',
     ],
   },
   {

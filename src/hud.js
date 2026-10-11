@@ -1,4 +1,4 @@
-import { WIDTH, RIDER, MATCH, BOAT } from './config.js';
+import { WIDTH, RIDER, MATCH, BOAT, ENDURANCE } from './config.js';
 import { settings } from './settings.js';
 
 const BAR_W = 200;
@@ -30,7 +30,7 @@ export class Hud {
       scene.add.text(nameX, 8, names[i], TEXT).setOrigin(i, 0).setDepth(51);
       const small = { ...TEXT, fontSize: '11px', strokeThickness: 3 };
       scene.add.text(labelX, 36 + BAR_H / 2, 'BALANCE', small).setOrigin(i, 0.5).setDepth(51);
-      scene.add.text(labelX, 56 + BAR_H / 2, 'TUBE AIR', small).setOrigin(i, 0.5).setDepth(51);
+      scene.add.text(labelX, 56 + BAR_H / 2, 'ENDURANCE', small).setOrigin(i, 0.5).setDepth(51);
       return { x, align: i };
     });
 
@@ -76,7 +76,8 @@ export class Hud {
     riders.forEach((r, i) => {
       const { x, align } = this.panels[i];
       this.bar(x, 36, r.balance / RIDER.maxBalance, 0xffc93c, align);
-      this.bar(x, 56, r.air / RIDER.maxAir, 0x4fd1ff, align);
+      const gassedColor = Math.sin(time * 12) > 0 ? 0xff4d4d : 0xb02a2a;
+      this.bar(x, 56, r.endurance / ENDURANCE.max, r.gassed ? gassedColor : 0xff9f43, align);
       for (let k = 0; k < MATCH.roundsToWin; k++) {
         const px = align === 0 ? x + BAR_W - 8 - k * 20 : x + 8 + k * 20;
         g.fillStyle(k < wins[i] ? 0xffdd55 : 0x000000, k < wins[i] ? 1 : 0.4);
