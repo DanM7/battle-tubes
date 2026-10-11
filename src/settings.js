@@ -1,7 +1,8 @@
 // Player settings, saved in the browser between sessions.
 //   debug: show the upcoming-turn banner and the boat speed gauge
+//   invincible: human riders take no balance or tube air damage (a cheat; see CHEATS)
 const KEY = 'battle-tubes-settings';
-const DEFAULTS = { debug: false };
+const DEFAULTS = { debug: false, invincible: false };
 
 export const settings = load();
 

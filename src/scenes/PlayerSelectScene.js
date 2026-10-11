@@ -7,8 +7,9 @@ import { newCampaign, riderOptions, customRiderOptions, isUnlocked, unlockText, 
 import { customRider, customName, newCustomRider, saveCustomRider, deleteCustomRider } from '../customRiders.js';
 import { enduranceRating, pointsLeft } from '../build.js';
 import { addBackButton } from './ui.js';
+import { addText } from '../pixelFont.js';
 
-const FONT = 'Arial Black, Arial, sans-serif';
+const TITLE_X = 440; // centered between the back button and the year
 const GRID_AREA = { x: 36, y: 82, w: 400, h: 350 }; // the grid sizes itself to fit in here
 const GRID_CENTER_X = GRID_AREA.x + GRID_AREA.w / 2;
 const CELL_GAP = 10;
@@ -16,12 +17,12 @@ const SECTION_GAP = 12; // extra space between the custom row and the rest
 const MAX_CELL = 108;
 // At MAX_CELL; everything inside a cell scales with it.
 const NAME_STRIP = 22;
-const NAME_SIZE = 13;
 const PORTRAIT_SCALE = 0.37;
 const PANEL = { x: 452, y: 82, w: 476, h: 418 };
 const PANEL_CENTER_X = PANEL.x + PANEL.w / 2;
-const NAME_Y = PANEL.y + 30;
-const NAME_BOX = { w: 260, h: 40 };
+const NAME_Y = PANEL.y + 26;
+const NAME_BOX = { w: 320, h: 40 };
+const NAME_PLACEHOLDER = 'ENTER NAME';
 const STATS_X = 676;
 const LABEL_ABOVE = 30; // a stat's label sits this far above its row
 const HEIGHT_ROW_Y = 174;
@@ -48,13 +49,11 @@ const MYSTERY_DARK = 0x5f646d;
 // the unfinished ladder per mode that the player backed out of (READY carries it on).
 const memory = { cell: {}, trunks: {}, ladder: {} };
 
-const textStyle = (size, color = '#ffffff') => ({
-  fontFamily: FONT,
-  fontSize: `${size}px`,
-  color,
-  stroke: '#000000',
-  strokeThickness: Math.max(3, Math.round(size / 6)),
-});
+// Shortens `str` with a trailing '.' until `text` is no wider than `maxW`.
+function setFittedText(text, str, maxW) {
+  text.setText(str);
+  for (let n = str.length - 1; text.width > maxW && n > 0; n--) text.setText(`${str.slice(0, n)}.`);
+}
 
 const formatHeight = (inches) => `${Math.floor(inches / 12)}'${inches % 12}"`;
 
@@ -138,13 +137,13 @@ export class PlayerSelectScene extends Phaser.Scene {
     const bg = this.add.graphics();
     bg.fillGradientStyle(0x5fb8f5, 0x5fb8f5, 0x1d5f99, 0x1d5f99, 1);
     bg.fillRect(0, 0, WIDTH, HEIGHT);
-    this.add.text(WIDTH / 2, 42, 'CHOOSE YOUR RIDER', textStyle(32, '#ffdd55')).setOrigin(0.5);
+    addText(this, TITLE_X, 42, 'CHOOSE YOUR RIDER', { scale: 4, color: '#ffdd55' }).setOrigin(0.5);
     const { year, label } = DIFFICULTIES[this.difficulty];
-    this.add.text(WIDTH - 16, 18, `${year} (${label})`, textStyle(16, '#ffdd55')).setOrigin(1, 0);
+    addText(this, WIDTH - 16, 18, `${year} (${label})`, { scale: 2, color: '#ffdd55' }).setOrigin(1, 0);
     const ladder = memory.ladder[this.difficulty];
     if (ladder) {
       const progress = `LADDER: RUNG ${ladder.rung + 1} OF ${ladder.order.length}`;
-      this.add.text(WIDTH - 16, 42, progress, textStyle(13, '#7dff7d')).setOrigin(1, 0);
+      addText(this, WIDTH - 16, 46, progress, { scale: 2, color: '#7dff7d', font: 'small' }).setOrigin(1, 0);
     }
     addBackButton(this);
 
@@ -158,7 +157,7 @@ export class PlayerSelectScene extends Phaser.Scene {
     this.makeGrid();
     this.makePanel();
     this.makeReadyButton();
-    this.hint = this.add.text(GRID_CENTER_X, HEIGHT - 20, '', textStyle(13, '#e8f6ff')).setOrigin(0.5);
+    this.hint = addText(this, WIDTH / 2, HEIGHT - 20, '', { scale: 2, color: '#e8f6ff' }).setOrigin(0.5);
 
     this.input.keyboard.on('keydown', (e) => this.onKey(e.code));
     // Phaser keeps the browser from moving focus off the name box when the canvas is clicked.
@@ -234,13 +233,11 @@ export class PlayerSelectScene extends Phaser.Scene {
       g.lineStyle(2, 0xffffff, 0.7);
       g.strokeRect(left, top, cell, cell);
       if (locked) drawLock(locks, left + cell - 20 * k, top + 14 * k, 26 * k);
-      if (s.mystery) this.add.text(s.x, s.y - strip / 2, '?', textStyle(Math.round(56 * k), '#9aa3b2')).setOrigin(0.5);
+      if (s.mystery) addText(this, s.x, s.y - strip / 2, '?', { scale: Math.max(2, Math.round(6 * k)), color: '#9aa3b2' }).setOrigin(0.5);
 
       const hit = this.add.zone(s.x, s.y, cell, cell).setInteractive({ useHandCursor: true });
       hit.on('pointerdown', () => this.select(i));
-      return this.add
-        .text(s.x, top + cell - strip / 2, '', textStyle(Math.round(NAME_SIZE * k), locked ? '#9aa3b2' : '#ffffff'))
-        .setOrigin(0.5);
+      return addText(this, s.x, top + cell - strip / 2, '', { scale: 2, color: locked ? '#9aa3b2' : '#ffffff', font: 'small' }).setOrigin(0.5);
     });
     this.highlight = this.add.graphics();
   }
@@ -275,22 +272,21 @@ export class PlayerSelectScene extends Phaser.Scene {
     g.lineStyle(3, 0xffffff, 0.8);
     g.strokeRoundedRect(PANEL.x, PANEL.y, PANEL.w, PANEL.h, 12);
 
-    this.nameText = this.add.text(PANEL_CENTER_X, NAME_Y, '', textStyle(30)).setOrigin(0.5);
+    this.nameText = addText(this, PANEL_CENTER_X, NAME_Y, '', { scale: 4 }).setOrigin(0.5);
     this.makeNameInput();
     this.previewG = this.add.graphics();
 
-    const stat = (y, str, size, color) => this.add.text(STATS_X, y, str, textStyle(size, color)).setOrigin(0, 0.5);
-    stat(HEIGHT_ROW_Y - LABEL_ABOVE, 'HEIGHT', 16, '#ffdd55');
-    this.heightText = stat(HEIGHT_ROW_Y, '', 28);
-    stat(GRIP_ROW_Y - LABEL_ABOVE, 'GRIP STRENGTH', 16, '#ffdd55');
+    const stat = (y, str, scale, color) => addText(this, STATS_X, y, str, { scale, color }).setOrigin(0, 0.5);
+    stat(HEIGHT_ROW_Y - LABEL_ABOVE, 'HEIGHT', 2, '#ffdd55');
+    this.heightText = stat(HEIGHT_ROW_Y, '', 4);
+    stat(GRIP_ROW_Y - LABEL_ABOVE, 'GRIP STRENGTH', 2, '#ffdd55');
     this.gripG = this.add.graphics();
-    stat(ENDURANCE_ROW_Y - LABEL_ABOVE, 'ENDURANCE', 16, '#ffdd55');
+    stat(ENDURANCE_ROW_Y - LABEL_ABOVE, 'ENDURANCE', 2, '#ffdd55');
     this.enduranceG = this.add.graphics();
-    this.styleText = this.add
-      .text(STATS_X, STYLE_Y, '', { ...textStyle(13, '#e8f6ff'), strokeThickness: 3, wordWrap: { width: PANEL.x + PANEL.w - STATS_X - 16 } })
-      .setOrigin(0, 0);
-    this.pointsLabel = this.add.text(STEPPER_MID, POINTS_Y, 'BUILD POINTS LEFT', textStyle(14, '#ffdd55')).setOrigin(0.5);
-    this.pointsText = this.add.text(STEPPER_MID, POINTS_Y + 22, '', textStyle(20)).setOrigin(0.5);
+    const styleWrap = PANEL.x + PANEL.w - STATS_X - 12;
+    this.styleText = addText(this, STATS_X, STYLE_Y, '', { scale: 2, color: '#e8f6ff', wrap: styleWrap, font: 'small' });
+    this.pointsLabel = addText(this, STEPPER_MID, POINTS_Y, 'BUILD POINTS LEFT', { scale: 2, color: '#ffdd55', font: 'small' }).setOrigin(0.5);
+    this.pointsText = addText(this, STEPPER_MID, POINTS_Y + 24, '', { scale: 3 }).setOrigin(0.5);
 
     const left = STATS_X + STEP_BUTTON / 2;
     const right = STATS_X + STEPPER_W - STEP_BUTTON / 2;
@@ -305,50 +301,51 @@ export class PlayerSelectScene extends Phaser.Scene {
       .rectangle(STEPPER_MID, DELETE_Y, 150, 34, 0x9b2226)
       .setStrokeStyle(2, 0xffffff)
       .setInteractive({ useHandCursor: true });
-    this.deleteText = this.add.text(STEPPER_MID, DELETE_Y, '', textStyle(16)).setOrigin(0.5);
+    this.deleteText = addText(this, STEPPER_MID, DELETE_Y, '', { scale: 2 }).setOrigin(0.5);
     this.deleteButton.on('pointerover', () => this.deleteButton.setFillStyle(0xbf2a30));
     this.deleteButton.on('pointerout', () => this.deleteButton.setFillStyle(0x9b2226));
     this.deleteButton.on('pointerdown', () => this.pressDelete());
 
-    this.trunksLabel = this.add.text(PANEL_CENTER_X, SWATCH_Y - 36, 'TRUNKS', textStyle(16, '#ffdd55')).setOrigin(0.5);
+    this.trunksLabel = addText(this, PANEL_CENTER_X, SWATCH_Y - 36, 'TRUNKS', { scale: 2, color: '#ffdd55' }).setOrigin(0.5);
     this.swatchG = this.add.graphics();
     this.swatchZones = [];
 
     this.lockG = this.add.graphics();
-    drawLock(this.lockG, PANEL_CENTER_X, SWATCH_Y - 46, 44);
-    this.unlockText = this.add
-      .text(PANEL_CENTER_X, SWATCH_Y + 20, '', { ...textStyle(18, '#ffdd55'), align: 'center' })
-      .setOrigin(0.5);
+    drawLock(this.lockG, PANEL_CENTER_X, SWATCH_Y - 30, 36);
+    this.unlockText = addText(this, PANEL_CENTER_X, SWATCH_Y + 24, '', { scale: 2, color: '#ffdd55', align: 'center', wrap: PANEL.w - 40 }).setOrigin(0.5);
   }
 
-  // A real text box, so phones bring up their keyboard.
+  // A real text box, so phones bring up their keyboard, but invisible: the box, the name
+  // and the cursor are drawn in pixel font underneath it. Typing always goes at the end.
   makeNameInput() {
+    this.nameBox = this.add
+      .rectangle(PANEL_CENTER_X, NAME_Y, NAME_BOX.w, NAME_BOX.h, 0x0b1d2a)
+      .setStrokeStyle(3, 0xffffff);
+    this.nameEntry = addText(this, PANEL_CENTER_X, NAME_Y, '', { scale: 3 }).setOrigin(0.5);
+    this.nameCursor = this.add.rectangle(0, NAME_Y, 6, 24, 0xffdd55);
+
     const node = document.createElement('input');
     node.type = 'text';
     node.maxLength = CUSTOM.nameMaxLength;
-    node.placeholder = 'ENTER NAME';
     node.autocomplete = 'off';
     node.spellcheck = false;
     Object.assign(node.style, {
       width: `${NAME_BOX.w}px`,
       height: `${NAME_BOX.h}px`,
       boxSizing: 'border-box',
-      padding: '0 8px',
-      font: `22px ${FONT}`,
-      textAlign: 'center',
-      textTransform: 'uppercase',
-      color: '#ffffff',
-      background: '#0b1d2a',
-      border: '3px solid #ffffff',
-      borderRadius: '8px',
+      color: 'transparent',
+      caretColor: 'transparent',
+      background: 'transparent',
+      border: 'none',
       outline: 'none',
-      userSelect: 'text',
-      webkitUserSelect: 'text',
     });
     this.nameInput = this.add.dom(PANEL_CENTER_X, NAME_Y, node);
 
+    const caretToEnd = () => node.setSelectionRange(node.value.length, node.value.length);
     node.addEventListener('input', () => this.editCustom({ name: node.value }));
+    node.addEventListener('click', caretToEnd);
     node.addEventListener('focus', () => {
+      requestAnimationFrame(caretToEnd);
       this.focus = 'name';
       this.deleteArmed = false;
       this.refresh();
@@ -364,6 +361,7 @@ export class PlayerSelectScene extends Phaser.Scene {
       e.stopPropagation();
       if (e.key === 'Enter' || e.key === 'ArrowDown' || e.key === 'Tab') this.setFocus('height');
       else if (e.key === 'ArrowUp' || e.key === 'Escape') this.setFocus('grid');
+      else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'Home') return e.preventDefault();
       else return;
       e.preventDefault();
       this.refresh();
@@ -375,7 +373,7 @@ export class PlayerSelectScene extends Phaser.Scene {
       .rectangle(x, y, STEP_BUTTON, STEP_BUTTON, 0x1d4e89)
       .setStrokeStyle(2, 0xffffff)
       .setInteractive({ useHandCursor: true });
-    const text = this.add.text(x, y - 1, dir < 0 ? '−' : '+', textStyle(22)).setOrigin(0.5);
+    const text = addText(this, x, y, dir < 0 ? '-' : '+', { scale: 3 }).setOrigin(0.5);
     rect.on('pointerover', () => rect.setFillStyle(0x2a6bb8));
     rect.on('pointerout', () => rect.setFillStyle(0x1d4e89));
     rect.on('pointerdown', () => {
@@ -388,7 +386,7 @@ export class PlayerSelectScene extends Phaser.Scene {
   makeReadyButton() {
     const y = GRID_AREA.y + GRID_AREA.h + 34;
     this.ready = this.add.rectangle(GRID_CENTER_X, y, 300, 52, 0x2f7d32).setStrokeStyle(3, 0xffffff).setInteractive({ useHandCursor: true });
-    this.readyText = this.add.text(GRID_CENTER_X, y, 'READY!', textStyle(26)).setOrigin(0.5);
+    this.readyText = addText(this, GRID_CENTER_X, y, 'READY!', { scale: 4 }).setOrigin(0.5);
     this.ready.on('pointerover', () => this.ready.setFillStyle(0x3e9e42));
     this.ready.on('pointerout', () => this.ready.setFillStyle(0x2f7d32));
     this.ready.on('pointerup', () => this.confirm());
@@ -548,12 +546,15 @@ export class PlayerSelectScene extends Phaser.Scene {
     const custom = this.isCustom;
     const locked = this.locked;
     if (locked) this.focus = 'grid';
-    this.cellNames.forEach((text, i) => text.setText(this.slotName(this.slots[i])));
+    this.cellNames.forEach((text, i) => setFittedText(text, this.slotName(this.slots[i]), this.grid.cell - 8));
     this.drawPortraits();
 
     const stats = s.mystery ? {} : custom ? this.customOf(s.custom) : s.c.stats[this.difficulty];
     this.nameText.setVisible(!custom).setText(custom ? '' : this.slotName(s));
     this.nameInput.setVisible(custom);
+    this.nameBox.setVisible(custom);
+    const typed = custom ? stats.name.toUpperCase() : '';
+    this.nameEntry.setVisible(custom).setText(typed || NAME_PLACEHOLDER).setColor(typed ? '#ffffff' : '#6f8296');
     this.heightText.setText(s.mystery ? '??' : formatHeight(stats.heightIn));
     if (custom) this.heightText.setOrigin(0.5).setX(STEPPER_MID);
     else this.heightText.setOrigin(0, 0.5).setX(STATS_X);
@@ -658,6 +659,11 @@ export class PlayerSelectScene extends Phaser.Scene {
   update(time) {
     const t = time / 1000;
     const pulse = 0.65 + 0.35 * Math.sin(t * 6);
+
+    const typing = this.focus === 'name' && this.isCustom;
+    const empty = this.nameInput.node.value === '';
+    const cursorX = empty ? PANEL_CENTER_X - this.nameEntry.width / 2 - 8 : PANEL_CENTER_X + this.nameEntry.width / 2 + 6;
+    this.nameCursor.setVisible(typing && Math.sin(t * 7) > 0).setX(cursorX);
 
     const h = this.highlight;
     h.clear();

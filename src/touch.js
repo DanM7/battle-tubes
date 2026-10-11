@@ -1,4 +1,5 @@
 import { WIDTH, HEIGHT } from './config.js';
+import { addText } from './pixelFont.js';
 
 const LABELS = { left: '◀', right: '▶', duck: '▼', high: 'HI', mid: 'MID', low: 'LOW' };
 
@@ -40,12 +41,8 @@ export class TouchControls {
 
   addButton(player, action, x, y, size) {
     const label = LABELS[action];
-    const text = this.scene.add
-      .text(x + size / 2, y + size / 2, label, {
-        fontFamily: 'Arial Black, Arial, sans-serif',
-        fontSize: `${Math.round(size * (label.length > 2 ? 0.26 : 0.36))}px`,
-        color: '#ffffff',
-      })
+    const scale = Math.max(2, Math.round((size * (label.length > 2 ? 0.26 : 0.36)) / 8));
+    const text = addText(this.scene, x + size / 2, y + size / 2, label, { scale })
       .setOrigin(0.5)
       .setAlpha(0.85)
       .setDepth(101);

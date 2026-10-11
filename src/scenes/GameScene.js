@@ -14,7 +14,9 @@ import { SpeechBubble } from '../speechBubble.js';
 import { nextTaunt } from '../taunts.js';
 import { newCampaign, afterMatch, rivalProfile, playerRiderOptions } from '../campaign.js';
 import { recordWin } from '../progress.js';
+import { settings } from '../settings.js';
 import { drawBoat, drawPickup, drawRider, drawRope, drawWake, wakeSurfaceHeight } from '../draw.js';
+import { addText } from '../pixelFont.js';
 
 const NEUTRAL = { left: false, right: false, duck: false, high: false, mid: false, low: false };
 const NO_ATTACKS = { high: false, mid: false, low: false };
@@ -91,9 +93,11 @@ export class GameScene extends Phaser.Scene {
           new CpuController(this.riders[1], this.riders[0], rival, CPU_SKILL_BY_RUNG[Math.min(this.campaign.rung, CPU_SKILL_BY_RUNG.length - 1)], this.pickups),
         ];
 
+    this.applySettings();
     this.pauseMenu = new PauseMenu(this, {
       onResume: () => this.pauseMenu.close(),
       onQuit: () => this.scene.start('Menu'),
+      onChange: () => this.applySettings(),
     });
     this.hud = new Hud(this, this.riders.map((r) => r.name), {
       onSettings: () => this.pauseMenu.open('settings'),
@@ -103,6 +107,12 @@ export class GameScene extends Phaser.Scene {
     this.input.keyboard.on('keydown-P', () => (this.pauseMenu.isOpen ? this.pauseMenu.close() : this.pauseMenu.open('pause')));
 
     this.startRound();
+  }
+
+  applySettings() {
+    this.riders.forEach((r, i) => {
+      r.invincible = settings.invincible && this.controllers[i] instanceof HumanController;
+    });
   }
 
   createBackdrop() {
@@ -334,14 +344,7 @@ export class GameScene extends Phaser.Scene {
 
   // `above` lifts it clear of a hit message popping up at the same moment.
   floatText(rider, message, color, above = 0) {
-    const text = this.add
-      .text(rider.screenX, rider.screenY - 100 - above, message, {
-        fontFamily: 'Arial Black, Arial, sans-serif',
-        fontSize: '22px',
-        color,
-        stroke: '#000000',
-        strokeThickness: 4,
-      })
+    const text = addText(this, rider.screenX, rider.screenY - 100 - above, message, { scale: 3, color })
       .setOrigin(0.5)
       .setDepth(40);
     this.tweens.add({

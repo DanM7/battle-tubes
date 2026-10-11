@@ -26,6 +26,7 @@ export class Rider {
     this.toughness = toughness;
     this.mass = mass;
     this.leanPower = leanPower;
+    this.invincible = false; // takes no balance or tube air damage
     this.opponent = null;
     this.reset();
   }
@@ -265,7 +266,7 @@ export class Rider {
     this.vx = -this.vx * p.edgeRebound;
     if (!shore || this.isOff || impact <= p.edgeImpactSpeed) return;
 
-    const damage = (impact - p.edgeImpactSpeed) * p.edgeImpactDamage * this.toughness;
+    const damage = (impact - p.edgeImpactSpeed) * p.edgeImpactDamage * this.damageScale;
     this.balance = Math.max(0, this.balance - damage);
     this.lastDamageTime = time;
     if (damage >= 2) this.events.push({ type: 'slam' });
@@ -276,7 +277,7 @@ export class Rider {
     const { limit, shore } = this.bounds;
     this.onShore = shore && !this.isOff && !this.airborne && Math.abs(this.x) >= limit - 2;
     if (!this.onShore) return;
-    this[SHORE.meter] = Math.max(0, this[SHORE.meter] - SHORE.damagePerSecond * this.toughness * dt);
+    this[SHORE.meter] = Math.max(0, this[SHORE.meter] - SHORE.damagePerSecond * this.damageScale * dt);
     this.lastDamageTime = time;
     if (time - this.lastScrapeEvent > SCRAPE_TEXT_COOLDOWN) {
       this.lastScrapeEvent = time;
@@ -293,9 +294,13 @@ export class Rider {
     }
   }
 
+  get damageScale() {
+    return this.invincible ? 0 : this.toughness;
+  }
+
   takeHit(cfg, dir, time, multiplier = 1) {
     this.vx += (dir * cfg.knockback) / this.mass;
-    this[cfg.meter] = Math.max(0, this[cfg.meter] - cfg.damage * multiplier * this.toughness);
+    this[cfg.meter] = Math.max(0, this[cfg.meter] - cfg.damage * multiplier * this.damageScale);
     this.lastDamageTime = time;
     this.flash = 0.12;
     this.attack = null;
@@ -307,8 +312,8 @@ export class Rider {
   // Someone landed on top of you: hurts both balance and the tube.
   takeStomp(dir, time) {
     this.vx += (dir * STOMP.knockback) / this.mass;
-    this.balance = Math.max(0, this.balance - STOMP.balanceDamage * this.toughness);
-    this.air = Math.max(0, this.air - STOMP.airDamage * this.toughness);
+    this.balance = Math.max(0, this.balance - STOMP.balanceDamage * this.damageScale);
+    this.air = Math.max(0, this.air - STOMP.airDamage * this.damageScale);
     this.lastDamageTime = time;
     this.flash = 0.2;
     this.attack = null;

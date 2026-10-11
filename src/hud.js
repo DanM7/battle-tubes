@@ -1,5 +1,6 @@
 import { WIDTH, RIDER, MATCH, BOAT, ENDURANCE } from './config.js';
 import { settings } from './settings.js';
+import { addText } from './pixelFont.js';
 
 const BAR_W = 200;
 const BAR_H = 12;
@@ -11,14 +12,6 @@ const ICON_FILL = 0x1d4e89;
 const SPEED_TIERS = Object.keys(BOAT.speeds);
 const SPEED_COLORS = { slow: 0x7dff7d, medium: 0xffdd55, fast: 0xff6b3d };
 
-const TEXT = {
-  fontFamily: 'Arial Black, Arial, sans-serif',
-  fontSize: '18px',
-  color: '#ffffff',
-  stroke: '#000000',
-  strokeThickness: 4,
-};
-
 export class Hud {
   constructor(scene, names, { onSettings, onPause }) {
     this.scene = scene;
@@ -27,17 +20,16 @@ export class Hud {
     this.panels = [MARGIN, WIDTH - MARGIN - BAR_W].map((x, i) => {
       const nameX = i === 0 ? x : x + BAR_W;
       const labelX = i === 0 ? x + BAR_W + 8 : x - 8;
-      scene.add.text(nameX, 8, names[i], TEXT).setOrigin(i, 0).setDepth(51);
-      const small = { ...TEXT, fontSize: '11px', strokeThickness: 3 };
-      scene.add.text(labelX, 36 + BAR_H / 2, 'BALANCE', small).setOrigin(i, 0.5).setDepth(51);
-      scene.add.text(labelX, 56 + BAR_H / 2, 'ENDURANCE', small).setOrigin(i, 0.5).setDepth(51);
+      addText(scene, nameX, 8, names[i], { scale: 2 }).setOrigin(i, 0).setDepth(51);
+      addText(scene, labelX, 36 + BAR_H / 2, 'BALANCE', { scale: 2, font: 'small' }).setOrigin(i, 0.5).setDepth(51);
+      addText(scene, labelX, 56 + BAR_H / 2, 'ENDURANCE', { scale: 2, font: 'small' }).setOrigin(i, 0.5).setDepth(51);
       return { x, align: i };
     });
 
-    this.status = scene.add.text(WIDTH / 2, 150, '', { ...TEXT, fontSize: '40px', strokeThickness: 6 }).setOrigin(0.5).setDepth(60);
-    this.sub = scene.add.text(WIDTH / 2, 198, '', { ...TEXT, fontSize: '20px' }).setOrigin(0.5).setDepth(60);
-    this.warning = scene.add.text(WIDTH / 2, 30, '', { ...TEXT, fontSize: '22px', color: '#ffdd55' }).setOrigin(0.5).setDepth(60);
-    this.speed = scene.add.text(WIDTH / 2 - 8, SPEED_Y, '', { ...TEXT, fontSize: '15px', strokeThickness: 3 }).setOrigin(0, 0.5).setDepth(60);
+    this.status = addText(scene, WIDTH / 2, 150, '', { scale: 5, align: 'center', wrap: WIDTH - 60 }).setOrigin(0.5).setDepth(60);
+    this.sub = addText(scene, WIDTH / 2, 204, '', { scale: 3, align: 'center' }).setOrigin(0.5).setDepth(60);
+    this.warning = addText(scene, WIDTH / 2, 30, '', { scale: 3, color: '#ffdd55' }).setOrigin(0.5).setDepth(60);
+    this.speed = addText(scene, WIDTH / 2 - 8, SPEED_Y, '', { scale: 2 }).setOrigin(0, 0.5).setDepth(60);
 
     const gearX = MARGIN + ICON_SIZE / 2;
     this.iconButton(gearX, drawGear, onSettings);

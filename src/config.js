@@ -22,11 +22,13 @@ export const RIDER_Z =
 export const ROPE_LENGTH = 1900;
 
 export const PHYSICS = {
-  swingLimit: 600, // farthest the tow rope lets a tube's center get from the wake
+  // Farthest the tow rope lets a tube's center get from the wake: room for both riders
+  // side by side on the flat water outside a wake ridge (WAKE.crestX + WAKE.halfBase).
+  swingLimit: 820,
   leanAccel: 400, // leaning while the boat goes straight: slow
   leanTurnBonus: 170, // extra lean authority per unit of boat curve
   turnAccel: 330, // sideways fling per unit of boat curve (opposite the turn)
-  ropeRestore: 0.5, // rope tension pulling you back toward the wake
+  ropeRestore: 0.45, // rope tension pulling you back toward the wake
   drag: 2.0,
   edgeRebound: 0.15,
   edgeImpactSpeed: 600, // slamming into the shore (not the rope's end) faster than this hurts balance
@@ -60,11 +62,11 @@ export const RIDER = {
 export const RIVER = {
   segmentLength: 200,
   // River half-widths. The shore is reachable only when halfWidth - tubeWidth / 2
-  // is inside PHYSICS.swingLimit, so "wide" water is scrape-free.
+  // is inside PHYSICS.swingLimit, so wide and medium water are scrape-free.
   widths: {
-    wide: { halfWidth: 1050, weight: 0.4 },
-    medium: { halfWidth: 720, weight: 0.35 },
-    narrow: { halfWidth: 500, weight: 0.25 },
+    wide: { halfWidth: 1200, weight: 0.4 },
+    medium: { halfWidth: 960, weight: 0.35 },
+    narrow: { halfWidth: 620, weight: 0.25 },
   },
   widthHoldMin: 40, // segments
   widthHoldMax: 110,
@@ -99,14 +101,14 @@ export const DIFFICULTIES = {
     year: '1999',
     label: 'EASY',
     speeds: ['slow', 'medium'],
-    blurb: 'Slow and medium speeds.\nFlat water or a small wake.',
+    blurb: 'Slow and medium\nspeeds. Flat water\nor a small wake.',
   },
   hard: {
     year: '2010',
     label: 'HARD',
     speeds: ['medium', 'fast'],
     openingHold: [3, 5],
-    blurb: 'Starts slow, then never lets up.\nBig wakes, big air, stomps.',
+    blurb: 'Starts slow, then\nnever lets up.\nBig wakes, big air\nand stomps.',
   },
 };
 
@@ -392,4 +394,18 @@ export const CUSTOM = {
   buildPoints: 5,
   shirts: [0xe04848, 0x8e44ad, 0x16a085, 0x00b4d8], // shirt color for each slot
   trunks: [0x1d4ed8, 0xd62828, 0xfcd34d, 0x1f2937], // a new rider's starting trunks for each slot
+};
+
+// Cheats, keyed by their settings.js flag. Entering the password on the Password screen
+// unlocks the cheat's switch in the in-game Settings panel and turns it on.
+//   password: what to type (letters only)
+//   name:     shown when it's entered ("INVINCIBILITY UNLOCKED!")
+//   title, description: its row in the Settings panel
+export const CHEATS = {
+  invincible: {
+    password: 'GETLOW',
+    name: 'Invincibility',
+    title: 'INVINCIBLE',
+    description: "Hits and the shore\ncan't knock you off",
+  },
 };

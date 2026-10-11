@@ -51,9 +51,10 @@ Distances are center-to-center between the two tubes. Tubes touch at **180**.
   recovery, which is your free hit.
 - **Faster attacks win trades.** If both riders swing, the punch lands first and
   cancels a slower kick.
-- **The river changes width.** Wide stretches are so broad that the tow rope stops
-  you long before the bank, so the shore can't touch you. In medium and **narrow**
-  stretches (visible ahead as the banks pinch in), the bank is inside rope reach.
+- **The river changes width.** In wide and medium stretches the tow rope stops you
+  before the bank, so the shore can't touch you, and there's room for both riders
+  side by side on the flat water outside a wake. In **narrow** stretches (visible
+  ahead as the banks pinch in), the bank is inside rope reach.
 - **The shore** (narrow water only): scraping drains 4 balance/s *and* blocks
   regeneration. Slamming into it fast (hard turns, getting shoved) costs a chunk more
   ("SLAMMED!").
@@ -97,7 +98,8 @@ fights exactly like their 2010 counterpart, so the scouting reports below still 
 - **The wake** raises all the water between its two crests, which sit about two
   tube-widths either side of the centerline, just outside where you start. Between
   the crests you ride high and level. Past a crest, the outer face tilts you and
-  slides you down and away to the flat water outside; the rope pulls you back.
+  slides you down and away to the flat water outside (wide enough for both tubes);
+  the rope pulls you back.
 - **Jumping:** ride up an outer face and over the crest with enough sideways speed
   and you launch. Heading out over a crest never launches you; you just slide down
   the face. The faster you're moving, the higher and farther you fly. Turns,
@@ -123,7 +125,9 @@ mode (beating Billy in 1999 doesn't unlock Chillo in 2010). Jeff, a bonus rider 
 isn't on the ladder, unlocks in both modes once you've beaten the final boss in both
 1999 and 2010. Every unlockable rider also has a password: enter it on the main menu's
 **Password** screen to unlock them in both modes. Every opponent's name, colors,
-height, grip, description and unlock rule are in `src/characters.js`.
+height, grip, description and unlock rule are in `src/characters.js`. Cheat passwords
+(`CHEATS` in `src/config.js`) work the same way: **GETLOW** turns on invincibility, and
+adds an ON/OFF switch for it to the in-game Settings panel.
 
 Riders are a trade between **reach** (height), **endurance** (shorter is better) and
 **grip** (how much damage you take). Rider select shows each rider's grip and endurance

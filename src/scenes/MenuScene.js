@@ -1,7 +1,6 @@
 import Phaser from 'phaser';
 import { WIDTH, HEIGHT } from '../config.js';
-
-const FONT = 'Arial Black, Arial, sans-serif';
+import { addText } from '../pixelFont.js';
 
 let menuSkipped = false;
 
@@ -23,24 +22,8 @@ export class MenuScene extends Phaser.Scene {
     bg.fillGradientStyle(0x5fb8f5, 0x5fb8f5, 0x1d5f99, 0x1d5f99, 1);
     bg.fillRect(0, 0, WIDTH, HEIGHT);
 
-    this.add
-      .text(WIDTH / 2, 110, 'BATTLE TUBES', {
-        fontFamily: FONT,
-        fontSize: '72px',
-        color: '#ffdd55',
-        stroke: '#000000',
-        strokeThickness: 8,
-      })
-      .setOrigin(0.5);
-    this.add
-      .text(WIDTH / 2, 175, 'Hang on. Fight dirty. Wake warfare starts here!', {
-        fontFamily: FONT,
-        fontSize: '18px',
-        color: '#ffffff',
-        stroke: '#000000',
-        strokeThickness: 4,
-      })
-      .setOrigin(0.5);
+    addText(this, WIDTH / 2, 110, 'BATTLE TUBES', { scale: 8, color: '#ffdd55' }).setOrigin(0.5);
+    addText(this, WIDTH / 2, 178, 'Hang on. Fight dirty. Wake warfare starts here!', { scale: 2 }).setOrigin(0.5);
 
     this.makeButton(WIDTH / 2, 240, '1 PLAYER', () => this.startOnePlayer());
     this.makeButton(WIDTH / 2, 305, '2 PLAYERS', () => this.comingSoon(), { dimmed: true });
@@ -57,7 +40,7 @@ export class MenuScene extends Phaser.Scene {
       .rectangle(x, y, 380, 58, fill)
       .setStrokeStyle(3, 0xffffff, dimmed ? 0.5 : 1)
       .setInteractive({ useHandCursor: true });
-    this.add.text(x, y, label, { fontFamily: FONT, fontSize: '24px', color: dimmed ? '#aab8c8' : '#ffffff' }).setOrigin(0.5);
+    addText(this, x, y, label, { scale: 3, color: dimmed ? '#aab8c8' : '#ffffff' }).setOrigin(0.5);
     rect.on('pointerover', () => rect.setFillStyle(hover));
     rect.on('pointerout', () => rect.setFillStyle(fill));
     rect.on('pointerup', onClick);
@@ -73,15 +56,7 @@ export class MenuScene extends Phaser.Scene {
 
   comingSoon() {
     this.toast?.destroy();
-    const toast = this.add
-      .text(WIDTH / 2, 500, '2 PLAYERS IS COMING SOON!', {
-        fontFamily: FONT,
-        fontSize: '24px',
-        color: '#ffdd55',
-        stroke: '#000000',
-        strokeThickness: 5,
-      })
-      .setOrigin(0.5);
+    const toast = addText(this, WIDTH / 2, 500, '2 PLAYERS IS COMING SOON!', { scale: 3, color: '#ffdd55' }).setOrigin(0.5);
     this.toast = toast;
     this.tweens.add({ targets: toast, alpha: 0, delay: 1400, duration: 500, onComplete: () => toast.destroy() });
   }

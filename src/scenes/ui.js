@@ -1,4 +1,4 @@
-const FONT = 'Arial Black, Arial, sans-serif';
+import { addText } from '../pixelFont.js';
 
 // The X button in the top-left corner that goes back to the main menu (Esc does too).
 export function addCloseButton(scene) {
@@ -9,7 +9,7 @@ export function addCloseButton(scene) {
     .rectangle(x, y, size, size, 0x1d4e89)
     .setStrokeStyle(3, 0xffffff)
     .setInteractive({ useHandCursor: true });
-  scene.add.text(x, y, 'X', { fontFamily: FONT, fontSize: '26px', color: '#ffffff' }).setOrigin(0.5);
+  addText(scene, x, y, 'X', { scale: 3 }).setOrigin(0.5);
   button.on('pointerover', () => button.setFillStyle(0x2a6bb8));
   button.on('pointerout', () => button.setFillStyle(0x1d4e89));
   button.on('pointerup', () => scene.scene.start('Menu'));
@@ -27,7 +27,7 @@ export function addBackButton(scene, to = 'Menu', data = undefined) {
     .rectangle(x, y, w, h, 0x1d4e89)
     .setStrokeStyle(3, 0xffffff)
     .setInteractive({ useHandCursor: true });
-  scene.add.text(x, y, '◀ BACK', { fontFamily: FONT, fontSize: '20px', color: '#ffffff' }).setOrigin(0.5);
+  addText(scene, x, y, '◀ BACK', { scale: 2 }).setOrigin(0.5);
   button.on('pointerover', () => button.setFillStyle(0x2a6bb8));
   button.on('pointerout', () => button.setFillStyle(0x1d4e89));
   button.on('pointerup', back);

@@ -1,6 +1,7 @@
 import { WIDTH } from './config.js';
+import { addText } from './pixelFont.js';
 
-const WRAP = 210;
+const WRAP = 250;
 const PAD_X = 10;
 const PAD_Y = 8;
 const TAIL = 14;
@@ -14,14 +15,7 @@ export class SpeechBubble {
     this.dir = dir;
     this.color = color;
     this.g = scene.add.graphics().setDepth(102);
-    this.text = scene.add
-      .text(0, 0, line, {
-        fontFamily: 'Arial Black, Arial, sans-serif',
-        fontSize: '15px',
-        color: '#111111',
-        align: 'center',
-        wordWrap: { width: WRAP },
-      })
+    this.text = addText(scene, 0, 0, line, { scale: 2, color: '#111111', align: 'center', wrap: WRAP, font: 'plain' })
       .setOrigin(0.5)
       .setDepth(103);
   }

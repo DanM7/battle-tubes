@@ -4,23 +4,16 @@ import { CHARACTERS } from '../characters.js';
 import { isChampion, rivalProfile, character, displayName, isUnlocked } from '../campaign.js';
 import { hasPasswordUnlock } from '../progress.js';
 import { addBackButton } from './ui.js';
+import { addText } from '../pixelFont.js';
 
-const FONT = 'Arial Black, Arial, sans-serif';
+const TITLE_X = 440; // centered between the back button and the year
 const RUNG_W = 440;
 const RUNG_H = 46;
-const RUNG_STEP = 54;
-const BOTTOM_RUNG_Y = 424;
+const RUNG_STEP = 52;
+const BOTTOM_RUNG_Y = 416;
 const FIGURE_MAX_PX = 38;
 const TALLEST_IN = Math.max(...CHARACTERS.flatMap((c) => Object.values(c.stats).map((s) => s.heightIn)));
 const SKIN = 0xf1c27d;
-
-const textStyle = (size, color = '#ffffff') => ({
-  fontFamily: FONT,
-  fontSize: `${size}px`,
-  color,
-  stroke: '#000000',
-  strokeThickness: Math.max(3, Math.round(size / 6)),
-});
 
 // Between-match screen: every rival by name, defeated ones in green,
 // the next one highlighted, and the boss always waiting at the top. Figures share
@@ -43,10 +36,10 @@ export class LadderScene extends Phaser.Scene {
     bg.fillGradientStyle(0x5fb8f5, 0x5fb8f5, 0x1d5f99, 0x1d5f99, 1);
     bg.fillRect(0, 0, WIDTH, HEIGHT);
 
-    this.add.text(WIDTH / 2, 34, champion ? 'CHAMPION OF THE RIVER' : 'BATTLE TUBES', textStyle(36, '#ffdd55')).setOrigin(0.5);
+    addText(this, TITLE_X, 34, champion ? 'CHAMPION OF THE RIVER' : 'BATTLE TUBES', { scale: champion ? 3 : 4, color: '#ffdd55' }).setOrigin(0.5);
     const { year, label } = DIFFICULTIES[campaign.difficulty];
-    this.add.text(WIDTH - 16, 16, `${year} (${label})`, textStyle(16, '#ffdd55')).setOrigin(1, 0);
-    this.add.text(WIDTH / 2, 76, this.headline(champion), textStyle(18)).setOrigin(0.5);
+    addText(this, WIDTH - 16, 16, `${year} (${label})`, { scale: 2, color: '#ffdd55' }).setOrigin(1, 0);
+    addText(this, WIDTH / 2, 76, this.headline(champion), { scale: 2 }).setOrigin(0.5);
     const newRiders = CHARACTERS.filter(
       (c) =>
         c.unlock &&
@@ -56,7 +49,7 @@ export class LadderScene extends Phaser.Scene {
     );
     if (newRiders.length > 0) {
       const names = newRiders.map((c) => displayName(c, campaign.difficulty).toUpperCase()).join(' & ');
-      const unlockText = this.add.text(WIDTH / 2, 104, `NEW RIDER UNLOCKED: ${names}`, textStyle(16, '#7dff7d')).setOrigin(0.5);
+      const unlockText = addText(this, WIDTH / 2, 104, `NEW RIDER UNLOCKED: ${names}`, { scale: 2, color: '#7dff7d' }).setOrigin(0.5);
       this.tweens.add({ targets: unlockText, scale: 1.08, yoyo: true, repeat: -1, duration: 500 });
     }
 
@@ -64,10 +57,10 @@ export class LadderScene extends Phaser.Scene {
 
     if (!champion) {
       const next = rivalProfile(campaign, campaign.order[campaign.rung]);
-      this.add.text(WIDTH / 2, 470, next.style, textStyle(16, '#e8f6ff')).setOrigin(0.5);
+      addText(this, WIDTH / 2, 468, next.style, { scale: 2, color: '#e8f6ff', align: 'center', wrap: WIDTH - 80 }).setOrigin(0.5);
     }
     const prompt = champion ? 'Tap or press Enter for the menu' : 'Tap or press Enter to ride  -  Esc to change rider';
-    const promptText = this.add.text(WIDTH / 2, 510, prompt, textStyle(18)).setOrigin(0.5);
+    const promptText = addText(this, WIDTH / 2, 512, prompt, { scale: 2 }).setOrigin(0.5);
     this.tweens.add({ targets: promptText, alpha: 0.4, yoyo: true, repeat: -1, duration: 600 });
 
     // Back to rider select. An unfinished ladder goes along, so picking a rider there
@@ -119,11 +112,11 @@ export class LadderScene extends Phaser.Scene {
       const profile = rivalProfile(this.campaign, name);
       this.drawFigure(g, left + 26, y + RUNG_H / 2 - 4, profile);
 
-      this.add.text(left + 52, y, profile.name.toUpperCase(), textStyle(22)).setOrigin(0, 0.5);
+      addText(this, left + 52, y, profile.name.toUpperCase(), { scale: 3 }).setOrigin(0, 0.5);
 
       const role = { [BOSS]: 'FINAL BOSS', [SUB_BOSS]: 'SUB-BOSS' }[name];
       const tag = defeated ? 'DEFEATED' : next ? (role ? `NEXT UP: ${role}` : 'NEXT UP') : role ?? `RUNG ${i + 1}`;
-      this.add.text(left + RUNG_W - 14, y, tag, textStyle(14, defeated ? '#c8ffc8' : '#ffffff')).setOrigin(1, 0.5);
+      addText(this, left + RUNG_W - 14, y, tag, { scale: 2, color: defeated ? '#c8ffc8' : '#ffffff' }).setOrigin(1, 0.5);
     });
   }
 
