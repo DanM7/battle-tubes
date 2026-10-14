@@ -1,4 +1,5 @@
 import { WIDTH, HEIGHT } from './config.js';
+import { IS_MOBILE } from './device.js';
 import { addText } from './pixelFont.js';
 
 const LABELS = { left: '◀', right: '▶', duck: '▼', high: 'HI', mid: 'MID', low: 'LOW' };
@@ -8,6 +9,8 @@ const LABELS = { left: '◀', right: '▶', duck: '▼', high: 'HI', mid: 'MID',
 //
 // Each player's set: a d-pad on the outer edge (◀ ▶ with ▼ duck tucked below
 // between them) and a HI / MID / LOW attack column.
+//
+// Hidden on desktop until the screen is touched.
 export class TouchControls {
   constructor(scene, twoPlayer) {
     this.scene = scene;
@@ -17,8 +20,14 @@ export class TouchControls {
       this.addPlayerSet(0, { size: 64, gap: 8, margin: 12, attacksBesideDpad: true, mirror: false });
       this.addPlayerSet(1, { size: 64, gap: 8, margin: 12, attacksBesideDpad: true, mirror: true });
     } else {
-      this.addPlayerSet(0, { size: 90, gap: 12, margin: 18, attacksBesideDpad: false, mirror: false });
+      this.addPlayerSet(0, { size: 84, gap: 12, margin: 14, attacksBesideDpad: false, mirror: false });
     }
+    this.setShown(IS_MOBILE);
+  }
+
+  setShown(shown) {
+    this.shown = shown;
+    this.buttons.forEach((b) => b.text.setVisible(shown));
   }
 
   // Lays the set out from the left edge; `mirror` flips it to the right edge.
@@ -51,8 +60,10 @@ export class TouchControls {
 
   update() {
     const pointers = this.scene.input.manager.pointers.filter((p) => p.isDown);
+    if (!this.shown && pointers.some((p) => p.wasTouch)) this.setShown(true);
     const g = this.g;
     g.clear();
+    if (!this.shown) return;
     for (const b of this.buttons) {
       b.down = pointers.some((p) => p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h);
       g.fillStyle(b.down ? 0xffffff : 0x000000, b.down ? 0.45 : 0.25);

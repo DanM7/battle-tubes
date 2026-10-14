@@ -2,18 +2,23 @@
 // at the riders' depth one unit is roughly 0.43 screen pixels.
 
 import { CHARACTERS } from './characters.js';
+import { IS_MOBILE } from './device.js';
 
 export const WIDTH = 960;
 export const HEIGHT = 540;
 
 const FIELD_OF_VIEW = 100;
+// On phones and tablets the whole scene sits this much higher, keeping the riders above
+// the touch buttons. Moving the horizon with the riders keeps the perspective the same.
+const MOBILE_VIEW_LIFT = 60;
+const VIEW_LIFT = IS_MOBILE ? MOBILE_VIEW_LIFT : 0;
 
 export const VIEW = {
-  horizonY: 200,
+  horizonY: 200 - VIEW_LIFT,
   cameraHeight: 1000,
   cameraDepth: 1 / Math.tan(((FIELD_OF_VIEW / 2) * Math.PI) / 180),
   drawDistance: 150, // segments
-  riderScreenY: 440, // where the riders' waterline sits on screen
+  riderScreenY: 440 - VIEW_LIFT, // where the riders' waterline sits on screen
 };
 
 // Distance from the camera to the riders, solved so the riders land at VIEW.riderScreenY.
@@ -45,7 +50,8 @@ export const RIDER = {
   torsoTop: 130,
   headSize: 55,
   duckDrop: 50, // how far torso and head drop while ducking
-  leanShift: 22,
+  leanShift: 22, // how far a rider's body moves toward the side they lean
+  leanSink: 0.4, // and how much lower (a share of its height) that side of their tube is pressed
   startOffset: 220,
   maxBalance: 100,
   maxAir: 100,
@@ -369,6 +375,7 @@ export const BOSS = LADDER_ORDER.at(-1);
 export const SUB_BOSS = LADDER_ORDER.at(-2);
 
 // Riders themselves (names, looks, height, grip, unlocks) are in src/characters.js.
+export const SKIN = 0xf1c27d; // a rider's skin unless they have their own
 export const GRIP_PER_POINT = 0.06; // damage taken per grip point away from 3
 export const MAX_GRIP = 5;
 
@@ -382,7 +389,7 @@ export const TRUNKS_COLORS = [0xd62828, 0xf77f00, 0xfcd34d, 0x84cc16, 0x14b8a6, 
 
 // Riders you make yourself: the top row of the rider select screen. Each mode keeps its own.
 export const CUSTOM = {
-  slots: 4,
+  maxRiders: 24, // per mode; past this the row has no +
   name: 'Custom', // shown on empty slots, and used if you leave the name blank
   nameMaxLength: 10,
   minHeightIn: 54, // 4'6"
@@ -392,9 +399,13 @@ export const CUSTOM = {
   // Height and grip share these: height costs its HEIGHT_BANDS band (0-4), grip costs
   // grip - 1 (0-4). Opponents in characters.js don't have to fit.
   buildPoints: 5,
-  shirts: [0xe04848, 0x8e44ad, 0x16a085, 0x00b4d8], // shirt color for each slot
-  trunks: [0x1d4ed8, 0xd62828, 0xfcd34d, 0x1f2937], // a new rider's starting trunks for each slot
+  shirts: [0xe04848, 0x8e44ad, 0x16a085, 0x00b4d8], // shirt colors, taken in turn by new riders
+  trunks: [0x1d4ed8, 0xd62828, 0xfcd34d, 0x1f2937], // a new rider's starting trunks, in turn
 };
+
+// Entering this on the Password screen unlocks every rider in every mode, as if you'd
+// entered each one's own password.
+export const UNLOCK_ALL_PASSWORD = 'CROM';
 
 // Cheats, keyed by their settings.js flag. Entering the password on the Password screen
 // unlocks the cheat's switch in the in-game Settings panel and turns it on.
@@ -407,5 +418,11 @@ export const CHEATS = {
     name: 'Invincibility',
     title: 'INVINCIBLE',
     description: "Hits and the shore\ncan't knock you off",
+  },
+  giant: {
+    password: 'EUGE',
+    name: 'Giant mode',
+    title: 'GIANT',
+    description: 'You ride at double\nyour height',
   },
 };

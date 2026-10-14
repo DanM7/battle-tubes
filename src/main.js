@@ -7,6 +7,11 @@ import { ControlsScene } from './scenes/ControlsScene.js';
 import { DifficultyScene } from './scenes/DifficultyScene.js';
 import { PlayerSelectScene } from './scenes/PlayerSelectScene.js';
 import { PasswordScene } from './scenes/PasswordScene.js';
+import { LabsScene } from './scenes/LabsScene.js';
+import { TubeLabScene } from './scenes/TubeLabScene.js';
+import { SizeLabScene } from './scenes/SizeLabScene.js';
+import { AttackLabScene } from './scenes/AttackLabScene.js';
+import { CreateLabScene } from './scenes/CreateLabScene.js';
 
 new Phaser.Game({
   type: Phaser.AUTO,
@@ -22,5 +27,5 @@ new Phaser.Game({
   },
   input: { activePointers: 4 },
   dom: { createContainer: true }, // the rider name box on the rider select screen
-  scene: [MenuScene, GameScene, LadderScene, ControlsScene, DifficultyScene, PlayerSelectScene, PasswordScene],
+  scene: [MenuScene, GameScene, LadderScene, ControlsScene, DifficultyScene, PlayerSelectScene, PasswordScene, LabsScene, TubeLabScene, SizeLabScene, AttackLabScene, CreateLabScene],
 });

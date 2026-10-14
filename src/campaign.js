@@ -33,7 +33,7 @@ export const character = (id) => CHARACTERS.find((c) => c.id === id);
 export const opponentCharacter = (key) => CHARACTERS.find((c) => c.nickname === key);
 
 // Real names in 1999, nicknames in 2010.
-export const displayName = (c, difficulty) => (difficulty === 'easy' ? c.id : c.nickname);
+export const displayName = (c, difficulty) => (difficulty === 'easy' ? (c.name ?? c.id) : c.nickname);
 
 // The modes that c.unlock.beat has to be beaten in.
 const unlockModes = (difficulty, c) => c.unlock.modes ?? [difficulty];
@@ -41,7 +41,7 @@ const unlockModes = (difficulty, c) => c.unlock.modes ?? [difficulty];
 export const isUnlocked = (difficulty, c) =>
   !c.unlock ||
   hasPasswordUnlock(c.id) ||
-  unlockModes(difficulty, c).every((mode) => hasBeaten(mode, character(c.unlock.beat).nickname));
+  (Boolean(c.unlock.beat) && unlockModes(difficulty, c).every((mode) => hasBeaten(mode, character(c.unlock.beat).nickname)));
 
 // The CHARACTERS entry whose unlock password this is, if any.
 export const characterForPassword = (password) =>
@@ -50,6 +50,7 @@ export const characterForPassword = (password) =>
 // "Beat Billy in 1999 to unlock", or one line per mode, finished ones first and marked:
 // "Beat B-Nap in 2010 (done)\nand Adam in 1999 to unlock"
 export function unlockText(difficulty, c) {
+  if (!c.unlock.beat) return 'Enter the secret password to unlock';
   const target = character(c.unlock.beat);
   const steps = unlockModes(difficulty, c)
     .map((mode) => ({ mode, done: Boolean(c.unlock.modes) && hasBeaten(mode, target.nickname) }))
@@ -67,6 +68,7 @@ export function riderOptions(c, difficulty, trunks = c.trunks) {
     name: displayName(c, difficulty),
     color: c.color,
     trunks,
+    skin: c.skin,
     heightIn,
     toughness: gripToughness(grip),
     mass: c.mass ?? 1,

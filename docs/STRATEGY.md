@@ -124,7 +124,8 @@ Every opponent from that mode is on the grid below, locked until you beat them i
 mode (beating Billy in 1999 doesn't unlock Chillo in 2010). Jeff, a bonus rider who
 isn't on the ladder, unlocks in both modes once you've beaten the final boss in both
 1999 and 2010. Every unlockable rider also has a password: enter it on the main menu's
-**Password** screen to unlock them in both modes. Every opponent's name, colors,
+**Password** screen to unlock them in both modes, or enter **CROM** to unlock every
+rider at once (`UNLOCK_ALL_PASSWORD` in `src/config.js`). Every opponent's name, colors,
 height, grip, description and unlock rule are in `src/characters.js`. Cheat passwords
 (`CHEATS` in `src/config.js`) work the same way: **GETLOW** turns on invincibility, and
 adds an ON/OFF switch for it to the in-game Settings panel.

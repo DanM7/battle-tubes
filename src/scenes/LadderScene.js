@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { WIDTH, HEIGHT, BOSS, SUB_BOSS, DIFFICULTIES } from '../config.js';
+import { WIDTH, HEIGHT, BOSS, SUB_BOSS, DIFFICULTIES, SKIN } from '../config.js';
 import { CHARACTERS } from '../characters.js';
 import { isChampion, rivalProfile, character, displayName, isUnlocked } from '../campaign.js';
 import { hasPasswordUnlock } from '../progress.js';
@@ -13,7 +13,6 @@ const RUNG_STEP = 52;
 const BOTTOM_RUNG_Y = 416;
 const FIGURE_MAX_PX = 38;
 const TALLEST_IN = Math.max(...CHARACTERS.flatMap((c) => Object.values(c.stats).map((s) => s.heightIn)));
-const SKIN = 0xf1c27d;
 
 // Between-match screen: every rival by name, defeated ones in green,
 // the next one highlighted, and the boss always waiting at the top. Figures share
@@ -42,7 +41,7 @@ export class LadderScene extends Phaser.Scene {
     addText(this, WIDTH / 2, 76, this.headline(champion), { scale: 2 }).setOrigin(0.5);
     const newRiders = CHARACTERS.filter(
       (c) =>
-        c.unlock &&
+        c.unlock?.beat &&
         character(c.unlock.beat).nickname === this.unlocked &&
         !hasPasswordUnlock(c.id) &&
         isUnlocked(campaign.difficulty, c),
@@ -128,7 +127,7 @@ export class LadderScene extends Phaser.Scene {
     const bodyW = total * 0.38;
     g.fillStyle(persona.color, 1);
     g.fillRect(centerX - bodyW / 2, footY - bodyH, bodyW, bodyH);
-    g.fillStyle(SKIN, 1);
+    g.fillStyle(persona.skin ?? SKIN, 1);
     g.fillRect(centerX - head / 2, footY - total, head, head);
     g.lineStyle(1, 0xffffff, 0.8);
     g.strokeRect(centerX - bodyW / 2, footY - bodyH, bodyW, bodyH);

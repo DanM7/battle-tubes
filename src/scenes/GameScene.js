@@ -20,6 +20,7 @@ import { addText } from '../pixelFont.js';
 
 const NEUTRAL = { left: false, right: false, duck: false, high: false, mid: false, low: false };
 const NO_ATTACKS = { high: false, mid: false, low: false };
+const GIANT_SIZE = 2; // how many times their height the giant cheat makes you
 
 // [text, color, camera shake intensity]
 const RESULT_FEEDBACK = {
@@ -43,20 +44,21 @@ const BUMP_FEEDBACK_SPEED = 250;
 const BIG_AIR_LAUNCH = 650;
 const STATUS_TEXT_LIFT = 34;
 
-// Round-start taunts: seconds into the countdown when P1 and then P2 speak, and how
-// long the bubbles take to fade once the fight starts.
-const TAUNT_TIMES = [0.15, 0.9];
+// Round-start taunts, from CPU opponents only: seconds into the countdown when they
+// speak, and how long the bubble takes to fade once the fight starts.
+const TAUNT_AT = 0.5;
 const TAUNT_FADE = 0.6;
 const TAUNT_HEAD_GAP = 6;
 
 export class GameScene extends Phaser.Scene {
-  constructor() {
-    super('Game');
+  constructor(key = 'Game') {
+    super(key);
   }
 
   init(data) {
     this.mode = data.mode === '2p' ? '2p' : '1p';
     this.campaign = this.mode === '1p' ? data.campaign ?? newCampaign() : null;
+    this.exitTo = 'Menu'; // where Esc and the pause menu's quit go
   }
 
   create() {
@@ -96,22 +98,29 @@ export class GameScene extends Phaser.Scene {
     this.applySettings();
     this.pauseMenu = new PauseMenu(this, {
       onResume: () => this.pauseMenu.close(),
-      onQuit: () => this.scene.start('Menu'),
+      onQuit: () => this.scene.start(this.exitTo),
       onChange: () => this.applySettings(),
     });
     this.hud = new Hud(this, this.riders.map((r) => r.name), {
       onSettings: () => this.pauseMenu.open('settings'),
       onPause: () => this.pauseMenu.open('pause'),
     });
-    this.input.keyboard.on('keydown-ESC', () => this.scene.start('Menu'));
-    this.input.keyboard.on('keydown-P', () => (this.pauseMenu.isOpen ? this.pauseMenu.close() : this.pauseMenu.open('pause')));
+    this.input.keyboard.on('keydown-ESC', () => this.scene.start(this.exitTo));
+    const togglePause = () => (this.pauseMenu.isOpen ? this.pauseMenu.close() : this.pauseMenu.open('pause'));
+    this.input.keyboard.on('keydown-P', togglePause);
+    // Once the match is over, Enter moves on instead.
+    this.input.keyboard.on('keydown-ENTER', () => {
+      if (this.phase !== 'matchOver' && this.phase !== 'leaving') togglePause();
+    });
 
     this.startRound();
   }
 
   applySettings() {
     this.riders.forEach((r, i) => {
-      r.invincible = settings.invincible && this.controllers[i] instanceof HumanController;
+      const human = this.controllers[i] instanceof HumanController;
+      r.invincible = settings.invincible && human;
+      r.setSize(settings.giant && human ? GIANT_SIZE : 1);
     });
   }
 
@@ -148,7 +157,9 @@ export class GameScene extends Phaser.Scene {
     this.controllers.forEach((c) => c.reset?.());
     this.setPhase('countdown', MATCH.countdown);
     this.clearTaunts();
-    this.taunts = this.riders.map((rider, i) => ({ rider, line: nextTaunt(), at: TAUNT_TIMES[i], bubble: null }));
+    this.taunts = this.riders
+      .filter((_, i) => !(this.controllers[i] instanceof HumanController))
+      .map((rider) => ({ rider, line: nextTaunt(), at: TAUNT_AT, bubble: null }));
     this.tauntFade = TAUNT_FADE;
   }
 
@@ -271,7 +282,7 @@ export class GameScene extends Phaser.Scene {
         } else {
           const winner = off0 ? 1 : 0;
           this.wins[winner] += 1;
-          this.hud.setStatus(`${this.riders[winner].name} TAKES THE ROUND`);
+          this.hud.setStatus(`${this.riders[winner].name.toUpperCase()} TAKES THE ROUND`);
         }
         this.setPhase('roundOver', MATCH.roundOverDelay);
         break;
@@ -295,7 +306,7 @@ export class GameScene extends Phaser.Scene {
       ? () => this.scene.start('Ladder', { campaign: afterMatch(this.campaign, winner === 0), unlocked })
       : () => this.scene.restart({ mode: this.mode });
     const prompt = this.campaign ? 'Tap or press Enter to continue' : 'Tap or press Enter to rematch  -  Esc for menu';
-    this.hud.setStatus(`${this.riders[winner].name} WINS!`, prompt);
+    this.hud.setStatus(`${this.riders[winner].name.toUpperCase()} WINS!`, prompt);
 
     const proceed = () => {
       if (this.phase !== 'matchOver' || this.pauseMenu.isOpen) return;
@@ -338,8 +349,12 @@ export class GameScene extends Phaser.Scene {
       r.screenTop = r.screenY - r.hurtBox('head').y2 * riderPt.s;
       drawRope(g, tow, r, riderPt);
     }
-    for (const r of this.riders) drawRider(g, r, riderPt, this.clock);
+    this.drawRiders(g, riderPt);
     drawItems(0, RIDER_Z);
+  }
+
+  drawRiders(g, riderPt) {
+    for (const r of this.riders) drawRider(g, r, riderPt, this.clock);
   }
 
   // `above` lifts it clear of a hit message popping up at the same moment.

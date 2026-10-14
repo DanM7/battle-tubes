@@ -1,4 +1,4 @@
-import { PHYSICS, RIDER, ATTACKS, DODGE, BUMP, SHORE, WAKE, JUMP, STOMP, ENDURANCE } from './config.js';
+import { PHYSICS, RIDER, ATTACKS, DODGE, BUMP, SHORE, WAKE, JUMP, STOMP, ENDURANCE, SKIN } from './config.js';
 import { wakeHeight, wakeSlope, wakeMaxSlope, crossedCrestInward } from './wake.js';
 
 const SCRAPE_TEXT_COOLDOWN = 1.5;
@@ -13,22 +13,30 @@ export const OPEN_WATER = { limit: PHYSICS.swingLimit, shore: false };
 // Rider states: idle | windup | active | recovery | hitstun | off
 // Ducking is a flag layered on top of idle; airborne is independent of state.
 export class Rider {
-  constructor({ name, color, trunks = darken(color), side, heightIn = RIDER.playerHeightIn, toughness = 1, mass = 1, leanPower = 1 }) {
+  constructor({ name, color, trunks = darken(color), skin = SKIN, side, heightIn = RIDER.playerHeightIn, toughness = 1, mass = 1, leanPower = 1 }) {
     this.name = name;
     this.color = color;
     this.trunks = trunks;
+    this.skin = skin;
     this.startSide = side;
-    this.heightIn = heightIn;
-    this.heightScale = heightIn / RIDER.baseHeightIn;
-    this.reachScale = 1 + (this.heightScale - 1) * RIDER.reachPerHeight;
-    // Endurance costs are multiplied by this and recovery divided by it.
-    this.sizeFactor = 1 + (this.heightScale - 1) * ENDURANCE.perHeight;
+    this.naturalHeightIn = heightIn;
+    this.setSize(1);
     this.toughness = toughness;
     this.mass = mass;
     this.leanPower = leanPower;
     this.invincible = false; // takes no balance or tube air damage
     this.opponent = null;
     this.reset();
+  }
+
+  // Makes the rider `multiple` times their natural height (2 with the giant cheat), with
+  // everything that follows from height: hurtboxes, reach and endurance.
+  setSize(multiple) {
+    this.heightIn = this.naturalHeightIn * multiple;
+    this.heightScale = this.heightIn / RIDER.baseHeightIn;
+    this.reachScale = 1 + (this.heightScale - 1) * RIDER.reachPerHeight;
+    // Endurance costs are multiplied by this and recovery divided by it.
+    this.sizeFactor = 1 + (this.heightScale - 1) * ENDURANCE.perHeight;
   }
 
   reset() {

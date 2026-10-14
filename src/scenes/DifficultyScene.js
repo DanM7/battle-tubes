@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
-import { WIDTH, HEIGHT, DIFFICULTIES } from '../config.js';
-import { addBackButton } from './ui.js';
+import { WIDTH, DIFFICULTIES } from '../config.js';
+import { addBackButton, preloadBackground, addBackground, BUTTON_ALPHA, BUTTON_HOVER_ALPHA } from './ui.js';
 import { addText } from '../pixelFont.js';
 
 const SQUARE = 360;
@@ -15,10 +15,12 @@ export class DifficultyScene extends Phaser.Scene {
     super('Difficulty');
   }
 
+  preload() {
+    preloadBackground(this);
+  }
+
   create() {
-    const bg = this.add.graphics();
-    bg.fillGradientStyle(0x5fb8f5, 0x5fb8f5, 0x1d5f99, 0x1d5f99, 1);
-    bg.fillRect(0, 0, WIDTH, HEIGHT);
+    addBackground(this);
 
     addText(this, WIDTH / 2, 70, 'SELECT MODE', { scale: 5, color: '#ffdd55' }).setOrigin(0.5);
 
@@ -37,17 +39,17 @@ export class DifficultyScene extends Phaser.Scene {
     const { year, label, blurb } = DIFFICULTIES[key];
     const [fill, hover] = COLORS[key];
     const square = this.add
-      .rectangle(x, y, SQUARE, SQUARE, fill)
+      .rectangle(x, y, SQUARE, SQUARE, fill, BUTTON_ALPHA)
       .setStrokeStyle(5, 0xffffff)
       .setInteractive({ useHandCursor: true });
     const text = (dy, str, scale, color = '#ffffff') =>
       addText(this, x, y + dy, str, { scale, color, align: 'center', wrap: SQUARE - 20 }).setOrigin(0.5);
     text(-80, year, 8, '#ffdd55');
-    text(0, `(${label})`, 4);
+    text(0, label, 4);
     text(92, blurb, 2);
 
-    square.on('pointerover', () => square.setFillStyle(hover));
-    square.on('pointerout', () => square.setFillStyle(fill));
+    square.on('pointerover', () => square.setFillStyle(hover, BUTTON_HOVER_ALPHA));
+    square.on('pointerout', () => square.setFillStyle(fill, BUTTON_ALPHA));
     square.on('pointerup', () => this.choose(key));
   }
 

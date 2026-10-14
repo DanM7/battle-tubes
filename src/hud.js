@@ -1,4 +1,4 @@
-import { WIDTH, RIDER, MATCH, BOAT, ENDURANCE } from './config.js';
+import { WIDTH, VIEW, RIDER, MATCH, BOAT, ENDURANCE } from './config.js';
 import { settings } from './settings.js';
 import { addText } from './pixelFont.js';
 
@@ -9,6 +9,10 @@ const SPEED_Y = 64;
 const ICON_SIZE = 34;
 const ICON_Y = 98;
 const ICON_FILL = 0x1d4e89;
+// The round banner and countdown follow the horizon to stay clear of the boat, but the
+// banner stops short of the bars above.
+const STATUS_Y = Math.max(100, VIEW.horizonY - 50);
+const SUB_Y = VIEW.horizonY + 4;
 const SPEED_TIERS = Object.keys(BOAT.speeds);
 const SPEED_COLORS = { slow: 0x7dff7d, medium: 0xffdd55, fast: 0xff6b3d };
 
@@ -26,8 +30,8 @@ export class Hud {
       return { x, align: i };
     });
 
-    this.status = addText(scene, WIDTH / 2, 150, '', { scale: 5, align: 'center', wrap: WIDTH - 60 }).setOrigin(0.5).setDepth(60);
-    this.sub = addText(scene, WIDTH / 2, 204, '', { scale: 3, align: 'center' }).setOrigin(0.5).setDepth(60);
+    this.status = addText(scene, WIDTH / 2, STATUS_Y, '', { scale: 5, align: 'center', wrap: WIDTH - 60 }).setOrigin(0.5).setDepth(60);
+    this.sub = addText(scene, WIDTH / 2, SUB_Y, '', { scale: 3, align: 'center' }).setOrigin(0.5).setDepth(60);
     this.warning = addText(scene, WIDTH / 2, 30, '', { scale: 3, color: '#ffdd55' }).setOrigin(0.5).setDepth(60);
     this.speed = addText(scene, WIDTH / 2 - 8, SPEED_Y, '', { scale: 2 }).setOrigin(0, 0.5).setDepth(60);
 

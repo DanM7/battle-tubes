@@ -1,0 +1,35 @@
+{
+  "frameWidth": 399,
+  "frameHeight": 398,
+  "frames": 1,
+  "anchor": {
+    "x": 161,
+    "y": 397
+  },
+  "vestArea": 9000,
+  "sources": [
+    "01.jpg"
+  ],
+  "handles": [
+    [
+      {
+        "x1": 31,
+        "x2": 77,
+        "y": 278
+      }
+    ]
+  ],
+  "palette": {
+    "skin": [
+      "#6d3833",
+      "#a15d4f",
+      "#d88369",
+      "#f3b080"
+    ],
+    "trunks": [
+      "#944127",
+      "#c45e29",
+      "#f2832a"
+    ]
+  }
+}

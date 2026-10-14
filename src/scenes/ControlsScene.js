@@ -70,7 +70,7 @@ const PAGES = [
         '1 Player:  ← / → lean    ↓ duck',
         'R punch    F mid kick    V low kick',
         'Rider select: arrows choose a rider, Enter to edit it, Enter again to ride.',
-        'P pauses.    Esc goes back.    2 Players: coming soon.',
+        'P or Enter pauses.    Esc goes back.    2 Players: coming soon.',
       ],
     },
     {

@@ -1,10 +1,9 @@
-import { RIDER, PICKUPS, WAKE, ROPE_LENGTH, RIDER_Z } from './config.js';
+import { RIDER, PICKUPS, WAKE, ROPE_LENGTH, RIDER_Z, SKIN } from './config.js';
 import { wakeHeight, wakeProfile } from './wake.js';
 
 // Placeholder rectangle art. Each `p` is a projected point { x, y, s } where
 // s is screen pixels per world unit at that depth.
 
-const SKIN = 0xf1c27d;
 const TRUNKS_HEIGHT = 30; // swim trunks band at the bottom of the torso
 const HITBOX_OUTLINE = 0x00ff88;
 const ONE_HANDED_OUTLINE = 0xff6b00; // tube outline while punching: it takes extra damage
@@ -147,10 +146,20 @@ export function drawRider(g, r, p, time) {
     g.fillEllipse(p.x + r.x * s, p.y - wakeHeight(r.x, r.wake) * s, RIDER.tubeWidth * s * fade, 22 * s * fade);
   }
 
+  // The tube's top slopes down toward the side the rider leans, pressed by their weight.
   const tube = r.hurtBox('tube');
+  const leanDrop = (tube.y2 - tube.y1) * RIDER.leanSink * Math.abs(r.leanVisual);
+  const tubeShape = [
+    pt(tube.x1, tube.y1),
+    pt(tube.x2, tube.y1),
+    pt(tube.x2, tube.y2 - (r.leanVisual > 0 ? leanDrop : 0)),
+    pt(tube.x1, tube.y2 - (r.leanVisual < 0 ? leanDrop : 0)),
+  ];
   const lowAirFlash = r.lowAir && Math.sin(time * 10) > 0;
-  fill(tube, r.air <= 0 ? 0x5a5a5a : lowAirFlash ? 0x9b2226 : 0x1f1f1f);
-  outline(tube, r.isOneHanded ? ONE_HANDED_OUTLINE : HITBOX_OUTLINE);
+  g.fillStyle(r.air <= 0 ? 0x5a5a5a : lowAirFlash ? 0x9b2226 : 0x1f1f1f, 1);
+  g.fillPoints(tubeShape, true);
+  g.lineStyle(1, r.isOneHanded ? ONE_HANDED_OUTLINE : HITBOX_OUTLINE, 0.9);
+  g.strokePoints(tubeShape, true);
 
   if (r.onShore) {
     const edge = Math.sign(r.x);
@@ -174,7 +183,7 @@ export function drawRider(g, r, p, time) {
   const trunks = { ...body, y2: body.y1 + TRUNKS_HEIGHT * r.heightScale };
   fill(body, r.flash > 0 ? 0xffffff : r.color);
   if (r.flash <= 0) fill(trunks, r.trunks);
-  fill(head, r.flash > 0 ? 0xffffff : SKIN);
+  fill(head, r.flash > 0 ? 0xffffff : r.skin);
   outline(body, HITBOX_OUTLINE);
   outline(head, HITBOX_OUTLINE);
 
@@ -207,6 +216,6 @@ function drawFall(g, r, p, time) {
   const y = p.y + 30 + k * 120;
   g.lineStyle(3, 0xffffff, 1 - k);
   g.strokeEllipse(landX, y, (120 + 300 * k) * s, (40 + 100 * k) * s);
-  g.fillStyle(SKIN, 1 - k);
+  g.fillStyle(r.skin, 1 - k);
   g.fillCircle(landX, y, 9 * (1 + k));
 }

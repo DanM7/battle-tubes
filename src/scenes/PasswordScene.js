@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
-import { WIDTH, HEIGHT, CHEATS } from '../config.js';
+import { WIDTH, HEIGHT, CHEATS, UNLOCK_ALL_PASSWORD } from '../config.js';
+import { CHARACTERS } from '../characters.js';
 import { characterForPassword } from '../campaign.js';
 import { recordPasswordUnlock, recordCheat } from '../progress.js';
 import { settings, saveSettings } from '../settings.js';
@@ -20,7 +21,8 @@ const UNLOCKED_COLOR = '#7dff7d';
 const ALREADY_COLOR = '#ffdd55';
 
 // Typing in a password: on-screen letter keys (or the keyboard), DEL, and SUBMIT. A rider's
-// password (unlock.password in characters.js) unlocks them in every mode.
+// password (unlock.password in characters.js) unlocks them in every mode, and
+// UNLOCK_ALL_PASSWORD unlocks them all.
 export class PasswordScene extends Phaser.Scene {
   constructor() {
     super('Password');
@@ -120,12 +122,19 @@ export class PasswordScene extends Phaser.Scene {
       return this.say(`${name.toUpperCase()} IS ON`, ALREADY_COLOR);
     }
 
+    if (password === UNLOCK_ALL_PASSWORD) {
+      const newlyUnlocked = CHARACTERS.filter((c) => c.unlock && recordPasswordUnlock(c.id));
+      if (newlyUnlocked.length) return this.say('ALL RIDERS UNLOCKED!', UNLOCKED_COLOR);
+      return this.say('ALL RIDERS ALREADY UNLOCKED', ALREADY_COLOR);
+    }
+
     const c = characterForPassword(password);
     if (!c) {
       this.cameras.main.shake(160, 0.006);
       return this.say('WRONG PASSWORD', '#ff6b6b');
     }
-    const names = c.nickname === c.id ? c.id : `${c.id} / ${c.nickname}`;
+    const name = c.name ?? c.id;
+    const names = c.nickname === name ? name : `${name} / ${c.nickname}`;
     if (recordPasswordUnlock(c.id)) this.say(`${names.toUpperCase()} UNLOCKED!`, UNLOCKED_COLOR);
     else this.say(`${names.toUpperCase()} IS ALREADY UNLOCKED`, ALREADY_COLOR);
   }

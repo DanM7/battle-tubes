@@ -1,13 +1,12 @@
-// Riders the player made on the rider select screen, saved in the browser.
-// Each mode has CUSTOM.slots slots; an empty slot is null. A rider is
-// { name, color, trunks, heightIn, grip }.
+// Riders the player made on the rider select screen, saved in the browser: a list per mode,
+// up to CUSTOM.maxRiders. A rider is { name, color, trunks, heightIn, grip }.
 import { CUSTOM } from './config.js';
 import { fitBudget } from './build.js';
 
 const KEY = 'battle-tubes-custom';
 
-const fit = (list) =>
-  Array.from({ length: CUSTOM.slots }, (_, i) => (list?.[i] ? fitBudget(list[i]) : null));
+// Saves from before the list could grow have empty (null) slots; those are dropped.
+const fit = (list) => (Array.isArray(list) ? list.filter(Boolean).slice(0, CUSTOM.maxRiders).map(fitBudget) : []);
 
 const riders = load();
 
@@ -16,7 +15,7 @@ function load() {
     const saved = JSON.parse(localStorage.getItem(KEY));
     return { easy: fit(saved?.easy), hard: fit(saved?.hard) };
   } catch {
-    return { easy: fit(), hard: fit() };
+    return { easy: [], hard: [] };
   }
 }
 
@@ -28,25 +27,31 @@ function save() {
   }
 }
 
-export const customRider = (difficulty, slot) => riders[difficulty][slot];
+export const customRiderCount = (difficulty) => riders[difficulty].length;
+
+// The rider at `index`, or null past the end.
+export const customRider = (difficulty, index) => riders[difficulty][index] ?? null;
 
 export const customName = (rider) => rider.name.trim() || CUSTOM.name;
 
-// What a new rider in this slot starts as.
-export const newCustomRider = (difficulty, slot) => ({
+// What the `index`th rider starts as.
+export const newCustomRider = (difficulty, index) => ({
   name: '',
-  color: CUSTOM.shirts[slot % CUSTOM.shirts.length],
-  trunks: CUSTOM.trunks[slot % CUSTOM.trunks.length],
+  color: CUSTOM.shirts[index % CUSTOM.shirts.length],
+  trunks: CUSTOM.trunks[index % CUSTOM.trunks.length],
   heightIn: CUSTOM.heightIn[difficulty],
   grip: CUSTOM.grip,
 });
 
-export function saveCustomRider(difficulty, slot, rider) {
-  riders[difficulty][slot] = { ...rider };
+// Saving one past the end adds a rider.
+export function saveCustomRider(difficulty, index, rider) {
+  const list = riders[difficulty];
+  if (index > list.length || index >= CUSTOM.maxRiders) return;
+  list[index] = { ...rider };
   save();
 }
 
-export function deleteCustomRider(difficulty, slot) {
-  riders[difficulty][slot] = null;
+export function deleteCustomRider(difficulty, index) {
+  riders[difficulty].splice(index, 1);
   save();
 }
