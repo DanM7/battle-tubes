@@ -1,3 +1,6 @@
+import { SKIN } from './config.js';
+import { CHARACTERS } from './characters.js';
+
 // A player's skin and swim trunks colors on the rider pictures. tools/cutout.py redraws
 // every frame's skin and trunks in a few fixed shades of Dan's (the animation JSON's
 // palette, darkest first); this swaps those exact colors for shades made from a player's
@@ -50,6 +53,27 @@ export function riderTexture(scene, anim, colors = DAN_COLORS) {
 }
 
 const sameColors = (a, b) => ['skin', 'trunks', 'skinShading', 'trunksShading'].every((k) => a[k] === b[k]);
+
+// A character's colors from characters.js (flat, as a match draws them) for the pictures:
+// as far from Dan's middle shades as they are from Dan's own flat colors there, in hue,
+// saturation and lightness.
+export function artColors({ skin = SKIN, trunks }) {
+  const dan = CHARACTERS.find((c) => c.id === 'Dan');
+  return {
+    ...DAN_COLORS,
+    skin: relative(skin, dan.skin, DAN_COLORS.skin),
+    trunks: relative(trunks, dan.trunks, DAN_COLORS.trunks),
+  };
+}
+
+// `color` moved the way `from` moves to `to`.
+function relative(color, from, to) {
+  if (color === from) return to;
+  const [h, s, l] = hsl(color);
+  const [fh, fs, fl] = hsl(from);
+  const [th, ts, tl] = hsl(to);
+  return fromHsl((h + th - fh + 1) % 1, fs > 0 ? Math.min(1, (s * ts) / fs) : s, Math.min(1, (l * tl) / fl));
+}
 
 // Dan's shades `from`, moved to center on `base` instead of from[baseIndex]: each keeps
 // its hue turn and saturation from Dan's middle shade, and its lightness as a multiple of

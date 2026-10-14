@@ -11,6 +11,7 @@ const LABS = [
   { label: 'SIZE', scene: 'SizeLab' },
   { label: 'ATTACK', scene: 'AttackLab' },
   { label: 'CREATE', scene: 'CreateLab' },
+  { label: 'OPPONENTS', scene: 'OpponentsLab' },
 ];
 
 const simplified = (text) => text.toLowerCase().replace(/[^a-z0-9]/g, '');

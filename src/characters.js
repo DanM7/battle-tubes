@@ -18,7 +18,8 @@
 //              OPPONENTS entry in config.js.
 //   color:     shirt color
 //   trunks:    swim trunks color in a match; keep it matching their sprites' shorts
-//   skin:      (optional, default SKIN in config.js) skin color in a match
+//   skin:      (optional, default SKIN in config.js) skin color in a match; keep it matching
+//              their sprites' lit skin (the pictures' shading is made from it)
 //   secret:    (optional) not on the select screen until unlocked, then in the top row
 //              with your custom riders
 //   mass:      (optional, default 1) how hard they are to shove, and how hard they
@@ -52,6 +53,7 @@ export const CHARACTERS = [
     ladderId: 1,
     color: 0x2ecc71,
     trunks: 0xf5c228,
+    skin: 0xf7b481,
     style: 'Rookie. Flails at anything, even from too far away, and barely defends.',
     sprites: { easy: 'assets/sprites/riders/player-billy.png' },
     stats: {
@@ -66,6 +68,7 @@ export const CHARACTERS = [
     ladderId: 2,
     color: 0xf1c40f,
     trunks: 0x389942,
+    skin: 0xf4b07b,
     style: 'Aggressive spammer. Gets right up close and never stops swinging.',
     sprites: { easy: 'assets/sprites/riders/player-rob.png' },
     stats: {
@@ -81,6 +84,7 @@ export const CHARACTERS = [
     ladderId: 3,
     color: 0x2457d6,
     trunks: 0x8d559e,
+    skin: 0xf8c8a4,
     mass: 1.8,
     leanPower: 1.3,
     style: 'Rammer. Big, heavy, and always shoving you toward the shore.',
@@ -97,6 +101,7 @@ export const CHARACTERS = [
     ladderId: 4,
     color: 0xa31621,
     trunks: 0x70b6d8,
+    skin: 0xf7caa8,
     style: 'Passive strafer. Drifts in and out of kick range, dodges, backs off when hurt.',
     sprites: { easy: 'assets/sprites/riders/player-rj.png' },
     stats: {
@@ -111,6 +116,7 @@ export const CHARACTERS = [
     ladderId: 5,
     color: 0xe67e22,
     trunks: 0xf68427,
+    skin: 0xfbbb87,
     style: 'Sub-boss. Fights like any rider below him on the ladder, and keeps switching.',
     sprites: { easy: 'assets/sprites/riders/player-dan.png' },
     stats: {
@@ -125,6 +131,7 @@ export const CHARACTERS = [
     ladderId: 6,
     color: 0x22262e,
     trunks: 0xbd2530,
+    skin: 0xf8b985,
     leanPower: 1.2,
     style: 'The final boss. Slippery, does everything well, grabs every health item.',
     sprites: { easy: 'assets/sprites/riders/player-adam.png' },
@@ -139,6 +146,7 @@ export const CHARACTERS = [
     nickname: 'Ffej',
     color: 0xff5fa2,
     trunks: 0x312e35,
+    skin: 0xf7c39d,
     style: 'Secret bonus rider. Good reach and a strong grip.',
     sprites: { easy: 'assets/sprites/riders/player-jeff.png', hard: 'assets/sprites/riders/player-ffej.png' },
     stats: {

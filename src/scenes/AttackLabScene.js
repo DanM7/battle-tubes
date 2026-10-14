@@ -27,7 +27,7 @@ const stages = (windup, strike, label, seconds) => [
   { label, frame: strike, seconds: seconds[1] },
   { label: 'WIND BACK', frame: windup, seconds: seconds[2] },
 ];
-const LAB_ATTACKS = [
+export const LAB_ATTACKS = [
   { label: 'PUNCH', keys: KEYMAPS.solo.high, stages: stages(ATTACK_ANIM.windup, ATTACK_ANIM.punch, 'PUNCH', [0.15, 0.25, 0.9]) },
   {
     label: 'MID KICK',
@@ -40,8 +40,8 @@ const LAB_ATTACKS = [
     stages: stages(ATTACK_ANIM.kickWindup, ATTACK_ANIM.lowKick, 'KICK', [0.3, 0.25, 0.9]),
   },
 ];
-const STRIKE_STAGE = 1;
-const WIND_BACK_STAGE = 2;
+export const STRIKE_STAGE = 1;
+export const WIND_BACK_STAGE = 2;
 
 export class AttackLabScene extends Phaser.Scene {
   constructor() {

@@ -20,6 +20,11 @@ strap them to the tube. Each frame's skin and swim trunks are redrawn in a few f
 shades (the JSON's palette), evened out between frames, so the game can recolor them for
 each player; finding them is tuned to Dan (orange trunks, brown hair).
 
+Heads: each art/riders/heads/<name>.jpg is the first frame of HEAD_BODY (Dan's attacks)
+redrawn with someone else's head. That head replaces Dan's in every frame of it, sat on
+the same neck, making anim/<name>-attack: the same moves, with their face. Their skin and
+trunks are Dan's shades like any frame, for the game to recolor.
+
 The background is whatever color the corners are. Everything connected to the image
 border that's close to that color, or a soft gray drop shadow on it, becomes
 transparent; the character's own grays survive because they aren't connected to the
@@ -88,9 +93,17 @@ HAIR_TOP_ROWS = 6  # hair touches the top this close to it
 HAIR_SPECK = 150  # leftover bits smaller than this...
 HAIR_SPECK_SKIN = 0.15  # ...with no more than this share of skin around them are hair
 
+# Head swaps (see heads()): loose bits of hair this small, this close to the head, go with it...
+HEAD_LOOSE = 60
+HEAD_LOOSE_GAP = 4
+NECK_ROWS = 6  # ...a head sits on the neck by the middle of its bottom this many rows...
+HEAD_ROOM = 60  # ...and can stick out this far past the body's frame (bigger hair)
+HEAD_BODY = 'dan-attack'  # the animation heads go on; the heads are drawn on its first frame
+
 ROOT = Path(__file__).resolve().parent.parent
 ART_DIR = ROOT / 'art' / 'riders'
 ANIM_DIR = ART_DIR / 'anim'
+HEAD_DIR = ART_DIR / 'heads'
 SPRITE_DIR = ROOT / 'public' / 'assets' / 'sprites' / 'riders'
 ANIM_OUT_DIR = SPRITE_DIR / 'anim'
 
@@ -239,12 +252,15 @@ def handles(rgba):
     r, g, b = (rgba[..., i].astype(int) for i in range(3))
     dark = (rgba[..., 3] > 0) & (np.maximum(np.maximum(r, g), b) <= HANDLE_MAX) & (b >= r - 10)
     vest = vest_mask(rgba)
+    vest_middle = np.nonzero(vest)[0].mean()
     found = []
     for core in blobs(shifted_and(dark, HANDLE_THICK)):
         if len(core) < HANDLE_MIN_CORE:
             continue
         ys, xs = np.array(core).T
         top, bottom = ys.min() - HANDLE_THICK, ys.max() + HANDLE_THICK
+        if bottom < vest_middle:  # black hair; handles are held low
+            continue
         left, right = xs.min() - HANDLE_THICK, xs.max() + HANDLE_THICK
         ring = vest[max(top - 6, 0):bottom + 7, max(left - 6, 0):right + 7]
         if ring.mean() > HANDLE_VEST_SHARE:
@@ -343,23 +359,83 @@ def hex_color(rgb):
     return '#%02x%02x%02x' % tuple(rgb)
 
 
-def animation(folder, keep_shadow=False):
-    frames = []
-    for src in sorted(folder.glob('*.jp*g')) + sorted(folder.glob('*.png')):
-        rgba = cut(src, keep_shadow)
-        vest = vest_mask(rgba)
-        if vest.sum() == 0:
-            sys.exit(f'{src}: no blue life vest found to line the frame up by')
-        rgba = scaled(rgba, (VEST_AREA / vest.sum()) ** 0.5)
-        rgba[..., 3] = np.where(rgba[..., 3] >= 128, 255, 0)
-        palettize(rgba)
-        vest = vest_mask(rgba)
-        anchor_x = int(round(np.nonzero(vest)[1].mean()))
-        anchor_y = int(np.nonzero(rgba[..., 3])[0].max()) + 1
-        frames.append((src.name, rgba, anchor_x, anchor_y))
-    if not frames:
-        return
+def frame(src, keep_shadow=False):
+    """One animation frame from `src`: (name, rgba, anchor x, anchor y)."""
+    rgba = cut(src, keep_shadow)
+    vest = vest_mask(rgba)
+    if vest.sum() == 0:
+        sys.exit(f'{src}: no blue life vest found to line the frame up by')
+    rgba = scaled(rgba, (VEST_AREA / vest.sum()) ** 0.5)
+    rgba[..., 3] = np.where(rgba[..., 3] >= 128, 255, 0)
+    palettize(rgba)
+    vest = vest_mask(rgba)
+    anchor_x = int(round(np.nonzero(vest)[1].mean()))
+    anchor_y = int(np.nonzero(rgba[..., 3])[0].max()) + 1
+    return src.name, rgba, anchor_x, anchor_y
 
+
+def head_mask(rgba):
+    """A frame's head: the opaque piece above the life vest that reaches the top, plus
+    loose bits of hair next to it."""
+    alpha = rgba[..., 3] > 0
+    above = alpha.copy()
+    above[np.nonzero(vest_mask(rgba).any(axis=1))[0].min():] = False
+    top = np.nonzero(alpha.any(axis=1))[0].min()
+    head = np.zeros(alpha.shape, bool)
+    loose = []
+    for blob in blobs(above):
+        ys, xs = np.array(blob).T
+        if ys.min() == top:
+            head[ys, xs] = True
+        elif len(blob) < HEAD_LOOSE:
+            loose.append((ys, xs))
+    near = grown(head, HEAD_LOOSE_GAP)
+    for ys, xs in loose:
+        if near[ys, xs].any():
+            head[ys, xs] = True
+    return head
+
+
+def neck(head):
+    """Where a head mask sits on the body: the middle of its bottom rows, and its bottom."""
+    ys, xs = np.nonzero(head)
+    bottom = ys.max()
+    return xs[ys > bottom - NECK_ROWS].mean(), bottom
+
+
+def with_head(body, src, keep_shadow=False):
+    """`body`'s frames (from frame()) with the head from `src` (the first of them redrawn
+    with someone else's head) instead of their own, sat on the same neck."""
+    _, donor, *_ = frame(src, keep_shadow)
+    new_head = head_mask(donor)
+    hx, hy = neck(new_head)
+    ys, xs = np.nonzero(new_head)
+    out = []
+    for name, rgba, ax, ay in body:
+        own = head_mask(rgba)
+        nx, ny = neck(own)
+        p = HEAD_ROOM
+        canvas = np.zeros((rgba.shape[0] + 2 * p, rgba.shape[1] + 2 * p, 4), np.uint8)
+        canvas[p:-p, p:-p] = rgba
+        canvas[p:-p, p:-p][own] = 0
+        ty = ys + int(round(ny - hy)) + p
+        tx = xs + int(round(nx - hx)) + p
+        free = canvas[ty, tx, 3] == 0
+        canvas[ty[free], tx[free]] = donor[ys[free], xs[free]]
+        oy, ox = np.nonzero(canvas[..., 3])
+        top, left = oy.min(), ox.min()
+        out.append((name, canvas[top:oy.max() + 1, left:ox.max() + 1], int(ax + p - left), int(ay + p - top)))
+    return out
+
+
+def animation(folder, keep_shadow=False):
+    frames = [frame(src, keep_shadow) for src in sorted(folder.glob('*.jp*g')) + sorted(folder.glob('*.png'))]
+    if frames:
+        write_animation(folder.name, frames)
+    return frames
+
+
+def write_animation(name, frames):
     left = max(ax for _, _, ax, _ in frames)
     right = max(f.shape[1] - ax for _, f, ax, _ in frames)
     up = max(ay for _, _, _, ay in frames)
@@ -374,7 +450,7 @@ def animation(folder, keep_shadow=False):
         held.append([{'x1': h['x1'] + dx, 'x2': h['x2'] + dx, 'y': h['y'] + dy} for h in handles(f)])
 
     ANIM_OUT_DIR.mkdir(parents=True, exist_ok=True)
-    png = ANIM_OUT_DIR / f'{folder.name}.png'
+    png = ANIM_OUT_DIR / f'{name}.png'
     Image.fromarray(strip, 'RGBA').save(png)
     meta = {
         'frameWidth': fw,
@@ -386,7 +462,7 @@ def animation(folder, keep_shadow=False):
         'handles': held,
         'palette': {'skin': [hex_color(c) for c in SKIN_SHADES], 'trunks': [hex_color(c) for c in TRUNKS_SHADES]},
     }
-    (ANIM_OUT_DIR / f'{folder.name}.json').write_text(json.dumps(meta, indent=2) + '\n')
+    (ANIM_OUT_DIR / f'{name}.json').write_text(json.dumps(meta, indent=2) + '\n')
     print(f'{png}: {len(frames)} frame(s) of {fw}x{fh}, anchor {left},{up}, handles {held}')
 
 
@@ -402,6 +478,17 @@ def main():
     if ANIM_DIR.is_dir():
         for folder in sorted(p for p in ANIM_DIR.iterdir() if p.is_dir()):
             animation(folder, keep_shadow)
+    heads(keep_shadow)
+
+
+def heads(keep_shadow=False):
+    """Every art/riders/heads/<name>.jpg on HEAD_BODY's frames, as <name>-attack."""
+    srcs = sorted(HEAD_DIR.glob('*.jp*g')) if HEAD_DIR.is_dir() else []
+    if not srcs:
+        return
+    body = [frame(src, keep_shadow) for src in sorted((ANIM_DIR / HEAD_BODY).glob('*.jp*g'))]
+    for src in srcs:
+        write_animation(f'{src.stem}-attack', with_head(body, src, keep_shadow))
 
 
 if __name__ == '__main__':

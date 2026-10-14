@@ -17,6 +17,11 @@ export const ATTACK_ANIM = {
   midKick: 4,
   lowKick: 5,
 };
+// The same frames with another rider's head on Dan's body (tools/cutout.py heads()).
+export function attackAnim(id) {
+  const name = id.toLowerCase();
+  return name === 'dan' ? ATTACK_ANIM : { ...ATTACK_ANIM, key: `${name}-attack`, url: `assets/sprites/riders/anim/${name}-attack` };
+}
 const STANDING_UNITS = RIDER.torsoTop + RIDER.headSize; // a base-height rider standing, in world units
 export const SPRITE_PX_PER_UNIT = 560 / STANDING_UNITS; // a standing rider picture is ~560px tall
 // Texels wide; sprite pixels in from the handle's outer end; how far over it tips at a full lean.
