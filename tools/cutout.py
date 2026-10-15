@@ -16,14 +16,26 @@ scale) and placed so its anchor lands on the same spot: left to right, the middl
 vest; top to bottom, the lowest point of the rider (their knees or feet on the tube).
 The JSON also lists the tube handles each frame's rider is holding (dark gray bars), left
 to right, as x1, x2 (their ends) and y (their bottom) in frame pixels, so the game can
-strap them to the tube. Each frame's skin and swim trunks are redrawn in a few fixed
-shades (the JSON's palette), evened out between frames, so the game can recolor them for
-each player; finding them is tuned to Dan (orange trunks, brown hair).
+strap them to the tube. Each frame's skin, swim trunks and hair are redrawn in a few
+fixed shades (the JSON's palette), evened out between frames, so the game can recolor
+them for each player; finding them is tuned to Dan (orange trunks, brown hair).
 
-Heads: each art/riders/heads/<name>.jpg is the first frame of HEAD_BODY (Dan's attacks)
-redrawn with someone else's head. That head replaces Dan's in every frame of it, sat on
-the same neck, making anim/<name>-attack: the same moves, with their face. Their skin and
-trunks are Dan's shades like any frame, for the game to recolor.
+Bodies: Dan's attacks (HEAD_BODY) are the normal build. Each folder art/riders/bodies/<build>/
+holds the same frames, same file names, redrawn with a different build (skinny, chubby,
+fat, huge) and Dan's head. They're scaled so the top of the head is CROWN_WIDTH wide, as
+wide as on Dan's frames, so heads match whatever the build's vest is. Each becomes
+anim/dan-<build>-attack.
+
+Heads: each character in src/characters.js with `heads` gets anim/<head>-attack for each
+of them: art/riders/heads/<head>.jpg is the first frame of their build (`body`) redrawn
+with their head, and that head replaces Dan's in every frame of the build, sat on the
+same neck: the same moves, with their face. Their skin and trunks are Dan's shades like
+any frame, for the game to recolor; their hair stays as drawn.
+
+Hair styles: each art/riders/hair/<style>.jpg is Dan's first frame (normal build) with only
+his hair changed, still Dan's brown. That head goes on every build's frames the same way,
+as dan-<style>-attack (normal) or dan-<style>-<build>-attack, and its hair is redrawn in
+HAIR_SHADES like Dan's, so custom riders can have any style in any hair color.
 
 The background is whatever color the corners are. Everything connected to the image
 border that's close to that color, or a soft gray drop shadow on it, becomes
@@ -35,11 +47,14 @@ not-dark pixel off the edge.
 """
 
 import json
+import subprocess
 import sys
 from collections import deque
+from functools import lru_cache
 from pathlib import Path
 
 import numpy as np
+from numpy.lib.stride_tricks import sliding_window_view
 from PIL import Image
 
 BG_TOLERANCE = 28     # max RGB distance from the background color
@@ -55,8 +70,11 @@ EARTH_WARMTH = 45     # ...cleared where it's no redder than this (skin is far r
 EARTH_MIN = 45        # ...no darker than this (outlines are)...
 EARTH_MAX = 215       # ...and no brighter than this
 PAD = 2
+GROUND_SPECK = 400    # loose bits below the vest smaller than this (dirt) go, before measuring...
+FRAME_SPECK = 100     # ...and smaller than this once the frame is resized
 HEAD_ROWS = 0.18      # the top this much of the character is taken to be their head
 VEST_AREA = 9000      # animation frames are scaled so the life vest covers this many pixels
+VEST_SPECK_SHARE = 0.05  # blue bits this share of the vest's biggest piece, above it, aren't vest
 HANDLE_MAX = 0x80     # a tube handle is dark (no channel above this)...
 HANDLE_THICK = 5      # ...at least twice this thick (outlines and shading are thinner)...
 HANDLE_MIN_CORE = 30  # ...with a core this big once that much is worn off its edges...
@@ -68,11 +86,13 @@ HANDLE_GRIP_RISE = 12  # ...and bottoms this close in height, are one handle
 # punch frames. The game swaps these exact colors for each player's own (riderColors.js).
 SKIN_SHADES = [(109, 56, 51), (161, 93, 79), (216, 131, 105), (243, 176, 128)]
 TRUNKS_SHADES = [(148, 65, 39), (196, 94, 41), (242, 131, 42)]
-# Each frame's skin and trunks are brightened or darkened to match Dan's punch frames at
-# this percentile of brightness (highlights look alike in every pose; shadows don't)...
+HAIR_SHADES = [(97, 53, 52), (117, 67, 59), (159, 92, 60), (189, 118, 78)]  # from his attacks
+# Each frame's skin, trunks and hair are brightened or darkened to match Dan's at this
+# percentile of brightness (highlights look alike in every pose; shadows don't)...
 SHADE_MATCH_PERCENTILE = 85
 SKIN_MATCH_LUMA = 192.4
 TRUNKS_MATCH_LUMA = 156.5
+HAIR_MATCH_LUMA = 111.3
 # ...after finding them: warm colors (reds through oranges) that aren't hair...
 WARM_MIN_SATURATION = 0.2
 WARM_MIN_VALUE = 75
@@ -92,18 +112,34 @@ HAIR_BELOW_VEST = 10  # how far below the vest's top the head can reach (the nec
 HAIR_TOP_ROWS = 6  # hair touches the top this close to it
 HAIR_SPECK = 150  # leftover bits smaller than this...
 HAIR_SPECK_SKIN = 0.15  # ...with no more than this share of skin around them are hair
+LONG_HAIR_BELOW_VEST = 40  # long hair (girls) can hang this far below the vest's top...
+LONG_HAIR_PIECE = 150  # ...and pieces of it this big count even if they don't reach the top;
+LONG_HAIR_SPECK = 300  # its highlights can be bigger bits (streaks down a ponytail or bangs)...
+LONG_HAIR_SPECK_HAIR = 0.5  # ...and count if at least this share of what's around them is hair
 
 # Head swaps (see heads()): loose bits of hair this small, this close to the head, go with it...
 HEAD_LOOSE = 60
 HEAD_LOOSE_GAP = 4
 NECK_ROWS = 6  # ...a head sits on the neck by the middle of its bottom this many rows...
 HEAD_ROOM = 60  # ...and can stick out this far past the body's frame (bigger hair)
-HEAD_BODY = 'dan-attack'  # the animation heads go on; the heads are drawn on its first frame
+# Matching head sizes (see head_size()): the sizes tried, how far (half-size pixels) one
+# head can sit off the other, and how much a pixel on only one of them counts against it.
+HEAD_MATCH_SIZES = np.arange(0.85, 1.151, 0.01)
+HEAD_MATCH_SHIFT = 12
+HEAD_MATCH_MISS = 8
+HEAD_BODY = 'dan-attack'  # the normal build's animation
+# Other builds are scaled by the width of the head's top this share of the way down it
+# (hair and skull: not cheeks or neck, which get fuller with the build)...
+CROWN_SHARE = 0.45
+CROWN_WIDTH = 117  # ...to this, Dan's on his frames
 
 ROOT = Path(__file__).resolve().parent.parent
 ART_DIR = ROOT / 'art' / 'riders'
 ANIM_DIR = ART_DIR / 'anim'
+BODY_DIR = ART_DIR / 'bodies'
 HEAD_DIR = ART_DIR / 'heads'
+HAIR_DIR = ART_DIR / 'hair'
+GIRL_DIR = ART_DIR / 'girls'
 SPRITE_DIR = ROOT / 'public' / 'assets' / 'sprites' / 'riders'
 ANIM_OUT_DIR = SPRITE_DIR / 'anim'
 
@@ -236,7 +272,17 @@ def select_sprite(src, dst, keep_shadow=False):
 
 def vest_mask(rgba):
     r, g, b = (rgba[..., i].astype(int) for i in range(3))
-    return (rgba[..., 3] > 0) & (b > 110) & (b > r + 50) & (b > g + 15)
+    blue = (rgba[..., 3] > 0) & (b > 110) & (b > r + 50) & (b > g + 15)
+    # A small blue bit wholly above the vest (a hair tie) isn't part of it.
+    pieces = list(blobs(blue))
+    if pieces:
+        big = max(map(len, pieces)) * VEST_SPECK_SHARE
+        top = min(min(y for y, _ in p) for p in pieces if len(p) >= big)
+        for piece in pieces:
+            ys, xs = np.array(piece).T
+            if len(piece) < big and ys.max() < top:
+                blue[ys, xs] = False
+    return blue
 
 
 def shifted_and(mask, steps):
@@ -290,8 +336,9 @@ def luma(rgb):
     return rgb[..., 0] * 0.299 + rgb[..., 1] * 0.587 + rgb[..., 2] * 0.114
 
 
-def body_regions(rgba):
-    """Masks of a frame's skin and swim trunks (see SKIN_SHADES)."""
+def body_regions(rgba, long_hair=False):
+    """Masks of a frame's skin and swim trunks (see SKIN_SHADES). `long_hair`: hair can
+    hang lower and in pieces that don't reach the top (a ponytail past its tie)."""
     rgb = rgba[..., :3].astype(float)
     r, g, b = rgb[..., 0], rgb[..., 1], rgb[..., 2]
     hi, lo = rgb.max(axis=2), rgb.min(axis=2)
@@ -300,24 +347,25 @@ def body_regions(rgba):
 
     vest_top = np.nonzero(vest_mask(rgba).any(axis=1))[0].min()
     head = np.zeros(warm.shape, bool)
-    head[:vest_top + HAIR_BELOW_VEST] = True
+    head[:vest_top + (LONG_HAIR_BELOW_VEST if long_hair else HAIR_BELOW_VEST)] = True
     features = (np.stack([(g + 1) / (r + 1), (b + 1) / (r + 1), (r + 1) / 255], axis=-1) - HAIR_MEAN) / HAIR_SPREAD
     hairy = np.clip(features @ np.array(HAIR_WEIGHTS) + HAIR_BIAS, -50, 50) > 0
     top = np.nonzero(warm.any(axis=1))[0].min()
     hair = np.zeros(warm.shape, bool)
     for blob in blobs(warm & head & (hairy | (hi < HAIR_DARK))):
         ys, xs = np.array(blob).T
-        if ys.min() <= top + HAIR_TOP_ROWS:
+        if ys.min() <= top + HAIR_TOP_ROWS or (long_hair and len(blob) >= LONG_HAIR_PIECE):
             hair[ys, xs] = True
     # Highlights in the hair: small bits it (and outlines) surround.
     for blob in blobs(warm & head & ~hair):
-        if len(blob) >= HAIR_SPECK:
+        if len(blob) >= (LONG_HAIR_SPECK if long_hair else HAIR_SPECK):
             continue
         ys, xs = np.array(blob).T
         bit = np.zeros(warm.shape, bool)
         bit[ys, xs] = True
         ring = grown(bit, 2) & ~bit
-        if (ring & warm & ~hair).sum() <= ring.sum() * HAIR_SPECK_SKIN:
+        mostly_hair = long_hair and (ring & hair).sum() >= ring.sum() * LONG_HAIR_SPECK_HAIR
+        if mostly_hair or (ring & warm & ~hair).sum() <= ring.sum() * HAIR_SPECK_SKIN:
             hair[ys, xs] = True
 
     pieces = sorted(blobs(warm & ~hair & (sat > TRUNKS_MIN_SATURATION) & (hi > TRUNKS_MIN_VALUE)), key=len, reverse=True)
@@ -326,14 +374,18 @@ def body_regions(rgba):
         if len(piece) >= len(pieces[0]) * TRUNKS_MIN_SHARE:
             ys, xs = np.array(piece).T
             trunks[ys, xs] = True
-    return warm & ~hair & ~trunks, trunks
+    return warm & ~hair & ~trunks, trunks, hair
 
 
-def palettize(rgba):
-    """Redraws a frame's skin and trunks in SKIN_SHADES and TRUNKS_SHADES, in place."""
-    skin, trunks = body_regions(rgba)
-    keys = {tuple(c) for c in SKIN_SHADES + TRUNKS_SHADES}
-    for mask, shades, match in ((skin, SKIN_SHADES, SKIN_MATCH_LUMA), (trunks, TRUNKS_SHADES, TRUNKS_MATCH_LUMA)):
+def palettize(rgba, with_hair=True, long_hair=False):
+    """Redraws a frame's skin, trunks and (if `with_hair`: Dan's brown, which finding hair
+    is tuned to) hair in SKIN_SHADES, TRUNKS_SHADES and HAIR_SHADES, in place."""
+    skin, trunks, hair = body_regions(rgba, long_hair)
+    if not with_hair:
+        hair = np.zeros_like(hair)
+    keys = {tuple(c) for c in SKIN_SHADES + TRUNKS_SHADES + HAIR_SHADES}
+    regions = ((skin, SKIN_SHADES, SKIN_MATCH_LUMA), (trunks, TRUNKS_SHADES, TRUNKS_MATCH_LUMA), (hair, HAIR_SHADES, HAIR_MATCH_LUMA))
+    for mask, shades, match in regions:
         if not mask.any():
             continue
         lum = luma(rgba[mask][:, :3].astype(float))
@@ -341,7 +393,7 @@ def palettize(rgba):
         levels = luma(np.array(shades, float))
         rgba[mask, :3] = np.array(shades)[np.abs(lum[:, None] - levels[None]).argmin(axis=1)]
     # Anything else that happens to be one of those exact colors is nudged off it.
-    others = (rgba[..., 3] > 0) & ~skin & ~trunks
+    others = (rgba[..., 3] > 0) & ~skin & ~trunks & ~hair
     for key in keys:
         clash = others & np.all(rgba[..., :3] == key, axis=2)
         rgba[clash, 2] = np.where(rgba[clash, 2] < 255, rgba[clash, 2] + 1, 254)
@@ -359,19 +411,42 @@ def hex_color(rgb):
     return '#%02x%02x%02x' % tuple(rgb)
 
 
-def frame(src, keep_shadow=False):
-    """One animation frame from `src`: (name, rgba, anchor x, anchor y)."""
+def vest_scale(rgba):
+    return (VEST_AREA / vest_mask(rgba).sum()) ** 0.5
+
+
+def crown_scale(rgba):
+    head = head_mask(rgba)
+    ys = np.nonzero(head.any(axis=1))[0]
+    rows = head[ys[0]:ys[0] + int((ys[-1] - ys[0]) * CROWN_SHARE)]
+    return CROWN_WIDTH / max(np.ptp(np.nonzero(row)[0]) for row in rows if row.any())
+
+
+def frame(src, keep_shadow=False, scale=vest_scale, dans_hair=True, long_hair=False):
+    """One animation frame from `src`, resized by `scale` (of the cut-out picture):
+    (name, rgba, anchor x, anchor y). `dans_hair`: their hair is Dan's, to recolor."""
     rgba = cut(src, keep_shadow)
-    vest = vest_mask(rgba)
-    if vest.sum() == 0:
+    if vest_mask(rgba).sum() == 0:
         sys.exit(f'{src}: no blue life vest found to line the frame up by')
-    rgba = scaled(rgba, (VEST_AREA / vest.sum()) ** 0.5)
+    drop_ground_specks(rgba, GROUND_SPECK)
+    rgba = scaled(rgba, scale(rgba))
     rgba[..., 3] = np.where(rgba[..., 3] >= 128, 255, 0)
-    palettize(rgba)
+    drop_ground_specks(rgba, FRAME_SPECK)
+    palettize(rgba, dans_hair, long_hair)
     vest = vest_mask(rgba)
     anchor_x = int(round(np.nonzero(vest)[1].mean()))
     anchor_y = int(np.nonzero(rgba[..., 3])[0].max()) + 1
     return src.name, rgba, anchor_x, anchor_y
+
+
+def drop_ground_specks(rgba, min_size):
+    """Clears loose bits below the life vest smaller than `min_size` (dirt left from the
+    ground under the rider), in place, so they don't count as the rider's lowest point."""
+    vest_bottom = np.nonzero(vest_mask(rgba).any(axis=1))[0].max()
+    for blob in blobs(rgba[..., 3] > 0):
+        ys, xs = np.array(blob).T
+        if len(blob) < min_size and ys.min() > vest_bottom:
+            rgba[ys, xs, 3] = 0
 
 
 def head_mask(rgba):
@@ -403,10 +478,11 @@ def neck(head):
     return xs[ys > bottom - NECK_ROWS].mean(), bottom
 
 
-def with_head(body, src, keep_shadow=False):
+def with_head(body, src, scale, keep_shadow=False, dans_hair=False):
     """`body`'s frames (from frame()) with the head from `src` (the first of them redrawn
-    with someone else's head) instead of their own, sat on the same neck."""
-    _, donor, *_ = frame(src, keep_shadow)
+    with someone else's head, resized by `scale`) instead of their own, sat on the same neck.
+    `dans_hair`: the new head's hair is Dan's brown, to recolor."""
+    _, donor, *_ = frame(src, keep_shadow, scale, dans_hair)
     new_head = head_mask(donor)
     hx, hy = neck(new_head)
     ys, xs = np.nonzero(new_head)
@@ -435,7 +511,7 @@ def animation(folder, keep_shadow=False):
     return frames
 
 
-def write_animation(name, frames):
+def write_animation(name, frames, build=None):
     left = max(ax for _, _, ax, _ in frames)
     right = max(f.shape[1] - ax for _, f, ax, _ in frames)
     up = max(ay for _, _, _, ay in frames)
@@ -460,8 +536,14 @@ def write_animation(name, frames):
         'vestArea': VEST_AREA,
         'sources': [name for name, *_ in frames],
         'handles': held,
-        'palette': {'skin': [hex_color(c) for c in SKIN_SHADES], 'trunks': [hex_color(c) for c in TRUNKS_SHADES]},
+        'palette': {
+            'skin': [hex_color(c) for c in SKIN_SHADES],
+            'trunks': [hex_color(c) for c in TRUNKS_SHADES],
+            'hair': [hex_color(c) for c in HAIR_SHADES],
+        },
     }
+    if build:
+        meta['body'] = build
     (ANIM_OUT_DIR / f'{name}.json').write_text(json.dumps(meta, indent=2) + '\n')
     print(f'{png}: {len(frames)} frame(s) of {fw}x{fh}, anchor {left},{up}, handles {held}')
 
@@ -478,17 +560,119 @@ def main():
     if ANIM_DIR.is_dir():
         for folder in sorted(p for p in ANIM_DIR.iterdir() if p.is_dir()):
             animation(folder, keep_shadow)
+    bodies(keep_shadow)
     heads(keep_shadow)
+    hair_styles(keep_shadow)
+    girls(keep_shadow)
+
+
+@lru_cache
+def body_frames(build, keep_shadow=False):
+    """A build's frames (from frame()), and the scale for its first frame redrawn with
+    another head: the same as the frame's own, by the life vest they share."""
+    srcs = sorted((ANIM_DIR / HEAD_BODY if build == 'normal' else BODY_DIR / build).glob('*.jp*g'))
+    scale = vest_scale if build == 'normal' else crown_scale
+    frames = [frame(src, keep_shadow, scale) for src in srcs]
+    hold = cut(srcs[0], keep_shadow)
+    k, vest = scale(hold), vest_mask(hold).sum()
+    return frames, lambda rgba: k * (vest / vest_mask(rgba).sum()) ** 0.5
+
+
+def bodies(keep_shadow=False):
+    """Every art/riders/bodies/<build>/ with Dan's head, as dan-<build>-attack."""
+    for folder in sorted(p for p in BODY_DIR.iterdir() if p.is_dir()) if BODY_DIR.is_dir() else []:
+        frames, _ = body_frames(folder.name, keep_shadow)
+        write_animation(f'dan-{folder.name}-attack', frames, folder.name)
+
+
+def characters():
+    script = "import('./src/characters.js').then((m) => console.log(JSON.stringify(m.CHARACTERS)))"
+    return json.loads(subprocess.run(['node', '-e', script], cwd=ROOT, capture_output=True, text=True, check=True).stdout)
 
 
 def heads(keep_shadow=False):
-    """Every art/riders/heads/<name>.jpg on HEAD_BODY's frames, as <name>-attack."""
-    srcs = sorted(HEAD_DIR.glob('*.jp*g')) if HEAD_DIR.is_dir() else []
-    if not srcs:
-        return
-    body = [frame(src, keep_shadow) for src in sorted((ANIM_DIR / HEAD_BODY).glob('*.jp*g'))]
+    """Each character's heads on their build's frames, as <head>-attack."""
+    for c in characters():
+        build = c.get('body', 'normal')
+        for name in sorted(set((c.get('heads') or {}).values())):
+            src = HEAD_DIR / f'{name}.jpg'
+            if not src.exists():
+                print(f'{src}: missing ({c["id"]}\'s head)')
+                continue
+            frames, scale = body_frames(build, keep_shadow)
+            write_animation(f'{name}-attack', with_head(frames, src, scale, keep_shadow), build)
+
+
+def builds():
+    return ['normal'] + (sorted(p.name for p in BODY_DIR.iterdir() if p.is_dir()) if BODY_DIR.is_dir() else [])
+
+
+def hair_styles(keep_shadow=False):
+    """Each hair style's head on every build, as dan-<style>-attack (normal) or
+    dan-<style>-<build>-attack."""
+    srcs = sorted(HAIR_DIR.glob('*.jp*g')) if HAIR_DIR.is_dir() else []
+    _, scale = body_frames('normal', keep_shadow)
     for src in srcs:
-        write_animation(f'{src.stem}-attack', with_head(body, src, keep_shadow))
+        for build in builds():
+            frames, _ = body_frames(build, keep_shadow)
+            name = f'dan-{src.stem}' if build == 'normal' else f'dan-{src.stem}-{build}'
+            write_animation(f'{name}-attack', with_head(frames, src, scale, keep_shadow, dans_hair=True), build)
+
+
+def shoulder_height(rgba):
+    """How far the top of the life vest is above the rider's lowest point."""
+    rows = np.nonzero((rgba[..., 3] > 0).any(axis=1))[0]
+    return rows.max() + 1 - np.nonzero(vest_mask(rgba).any(axis=1))[0].min()
+
+
+def head_patch(rgba):
+    """A frame's head (head_mask()) as half-size brightness, NaN off the head."""
+    head = head_mask(rgba)
+    ys, xs = np.nonzero(head)
+    g = np.where(head, luma(rgba[..., :3].astype(float)), np.nan)[ys.min():ys.max() + 1, xs.min():xs.max() + 1]
+    h, w = g.shape[0] // 2 * 2, g.shape[1] // 2 * 2
+    return g[:h, :w].reshape(h // 2, 2, w // 2, 2).mean(axis=(1, 3))
+
+
+def head_size(ref, rgba):
+    """How big `rgba`'s head is next to `ref`'s: the size of ref's head (of HEAD_MATCH_SIZES)
+    that, laid over rgba's anywhere, differs least in brightness and shape."""
+    target = np.pad(np.nan_to_num(head_patch(rgba), nan=-1), HEAD_MATCH_SHIFT, constant_values=-1)
+    on = target >= 0
+    src = head_patch(ref)
+    best = None
+    for k in HEAD_MATCH_SIZES:
+        size = (max(1, round(src.shape[1] * k)), max(1, round(src.shape[0] * k)))
+        if size[0] > target.shape[1] or size[1] > target.shape[0]:
+            continue
+        r = np.array(Image.fromarray(np.nan_to_num(src).astype(np.float32), 'F').resize(size, Image.BILINEAR))
+        m = np.array(Image.fromarray((~np.isnan(src)).astype(np.float32), 'F').resize(size, Image.BILINEAR)) > 0.5
+        win, win_on = sliding_window_view(target, r.shape), sliding_window_view(on, r.shape)
+        both = win_on & m
+        diff = np.where(both, (win - r) ** 2, 0).sum(axis=(-1, -2)) / np.maximum(both.sum(axis=(-1, -2)), 1)
+        score = (diff + (win_on ^ m).sum(axis=(-1, -2)) * HEAD_MATCH_MISS).min()
+        if best is None or score < best[0]:
+            best = (score, k)
+    return best[1]
+
+
+def girls(keep_shadow=False):
+    """Each art/riders/girls/<style>/ (Dan's frames redrawn as a girl), as girl-<style>-attack.
+    A girl is slimmer than Dan, so her first frame is scaled to put the top of her vest as
+    high as on his, not by vest size: the same height. The drawings don't keep her one size
+    from pose to pose (or kneel as low as his), so each of the others is then scaled to make
+    her head as big as on the first."""
+    dan, _ = body_frames('normal', keep_shadow)
+    heights = [shoulder_height(rgba) for _, rgba, *_ in dan]
+    for folder in sorted(p for p in GIRL_DIR.iterdir() if p.is_dir()) if GIRL_DIR.is_dir() else []:
+        srcs = sorted(folder.glob('*.jp*g'))
+        by_height = [lambda rgba, h=h: h / shoulder_height(rgba) for h in heights]
+        frames = [frame(src, keep_shadow, scale, long_hair=True) for src, scale in zip(srcs, by_height)]
+        hold = frames[0][1]
+        for i in range(1, len(frames)):
+            k = head_size(hold, frames[i][1])
+            frames[i] = frame(srcs[i], keep_shadow, lambda rgba, s=by_height[i], k=k: s(rgba) / k, long_hair=True)
+        write_animation(f'girl-{folder.name}-attack', frames, 'normal')
 
 
 if __name__ == '__main__':

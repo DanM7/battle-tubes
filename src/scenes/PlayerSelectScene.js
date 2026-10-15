@@ -1,13 +1,29 @@
 import Phaser from 'phaser';
-import { WIDTH, HEIGHT, DIFFICULTIES, TRUNKS_COLORS, MAX_GRIP, CUSTOM } from '../config.js';
+import { WIDTH, HEIGHT, DIFFICULTIES, MAX_GRIP, CUSTOM } from '../config.js';
 import { CHARACTERS } from '../characters.js';
 import { Rider } from '../rider.js';
 import { drawRider } from '../draw.js';
-import { newCampaign, riderOptions, customRiderOptions, isUnlocked, unlockText, displayName } from '../campaign.js';
+import { newCampaign, riderOptions, customRiderOptions, isUnlocked, unlockText, displayName, spriteKey } from '../campaign.js';
 import { customRider, customRiderCount, customName, newCustomRider, saveCustomRider, deleteCustomRider } from '../customRiders.js';
 import { enduranceRating, pointsLeft } from '../build.js';
-import { addBackButton, preloadBackground, addBackground } from './ui.js';
-import { addText } from '../pixelFont.js';
+import {
+  TubeRider,
+  preloadRiderAnim,
+  loadRiderAnim,
+  isRiderAnimLoaded,
+  buildAnim,
+  genderBuilds,
+  hairStyleLabel,
+  BUILDS,
+  GENDERS,
+  HAIR_STYLES,
+  ART_SCALE,
+  ATTACK_ANIM,
+} from '../riderArt.js';
+import { SKIN_TONES, HAIR_COLORS, TRUNKS_COLORS } from '../riderColors.js';
+import { tubeTextures, TEXELS_PER_UNIT, TUBE_WIDTH } from '../tubeArt.js';
+import { addBackButton, preloadBackground, addBackground, addColorPicker } from './ui.js';
+import { addText, fontToFit } from '../pixelFont.js';
 import { IS_MOBILE } from '../device.js';
 
 const TITLE_X = 440; // centered between the back button and the year
@@ -32,32 +48,59 @@ const NAME_BOX = { w: 320, h: 40 };
 const NAME_PLACEHOLDER = 'ENTER NAME';
 const STATS_X = 676;
 const LABEL_ABOVE = 24; // a stat's label sits this far above its row
-// Where the stat rows are centered: a custom rider's leave room below for build points and
-// trunks; a CHARACTERS entry's spread down the panel.
+// A custom rider's tabs, under the name box, and the panel rows the keyboard moves through
+// on each.
+const TABS = [
+  { id: 'stats', label: 'STATS', rows: ['height', 'grip'] },
+  { id: 'skin', label: 'SKIN', rows: ['color', 'shading'] },
+  { id: 'hair', label: 'HAIR', rows: ['color', 'shading'] },
+  { id: 'style', label: 'STYLE', rows: ['hairStyle'] },
+  { id: 'trunks', label: 'SUIT', rows: ['color', 'shading'] },
+  { id: 'body', label: 'BODY', rows: ['gender', 'build'] },
+];
+const TAB = { y: NAME_Y + 44, w: 72, h: 28, gap: 5, fill: 0x1d4e89, hover: 0x2a6bb8, chosen: 0x2f7d32 };
+const TABS_W = TABS.length * (TAB.w + TAB.gap) - TAB.gap;
+const TABS_LEFT = PANEL.x + (PANEL.w - TABS_W) / 2;
+// Where the stat rows are centered: a custom rider's on the STATS tab, with build points
+// below; a CHARACTERS entry's spread down the panel.
 const STAT_ROWS = {
-  custom: { height: 174, grip: 234, endurance: 292, style: 316 },
+  custom: { height: 206, grip: 262, endurance: 318 },
   preset: { height: 206, grip: 270, endurance: 334, style: 360 },
 };
-const POINTS_Y = 322;
+const POINTS_Y = 356;
 const STEP_BUTTON = 32;
 const STEPPER_W = 224; // [-] value [+]
 const STEPPER_MID = STATS_X + STEPPER_W / 2;
-const DELETE_Y = 386;
+const DELETE_Y = 462;
 const GRIP_COLOR = 0x7dff7d;
 const ENDURANCE_COLOR = 0xff9f43;
+// The SKIN, HAIR and TRUNKS tabs: swatches (picture colors) in rows of `cols`, then a
+// CUSTOM color, then how strongly the color is shaded.
+const PALETTES = { skin: SKIN_TONES, hair: HAIR_COLORS, trunks: TRUNKS_COLORS };
+const COLOR_GRID = { y: 200, size: 32, gap: 10, cols: 5 };
+const COLOR_GRID_LEFT = STEPPER_MID - (COLOR_GRID.cols * (COLOR_GRID.size + COLOR_GRID.gap) - COLOR_GRID.gap) / 2;
+const PICKER = { y: 290, w: 200, h: 32 };
+const SHADING = { y: 350, step: 0.1, min: 0.3, max: 2 };
+// The STYLE and BODY tabs: steppers through a list (for the look so far), for that look key.
+const CHOICES = {
+  hairStyle: { tab: 'style', label: 'HAIR STYLE', y: 206, list: (look) => HAIR_STYLES[look.gender] },
+  gender: { tab: 'body', label: 'GENDER', y: 206, list: () => GENDERS },
+  build: { tab: 'body', label: 'BUILD', y: 270, list: (look) => genderBuilds(look.gender) },
+};
 const PREVIEW = { x: 562, s: 0.95 };
-const PREVIEW_Y = { custom: 366, preset: 426 }; // where the preview tube sits on the water
+const PLAYER_TUBE = 'green'; // the player's tube in a match (the opponent's is blue)
+const PREVIEW_Y = { custom: 462, preset: 426 }; // where the preview tube sits on the water
+const ART_TEXEL = 1.3; // how big a custom rider's picture is drawn
 const FEET_Y = 452; // a CHARACTERS entry's sprite stands on this line...
 const SPRITE_PX_PER_INCH = 3.9; // ...this tall per inch of their height
 const UNLOCK = { x: PANEL.x + 28, y: 476 }; // the lock, then "Beat ... to unlock" after it
 const HEAD_CROP = 0.3; // a grid spot shows a square this fraction of the sprite's height, from its top
-const SWATCH = 34;
-const SWATCH_GAP = 10;
-const SWATCH_Y = 450;
 const HIGHLIGHT = 0xffdd55;
 const LOCKED_ALPHA = 0.3;
 const MYSTERY_GRAY = 0x8a8f98;
-const MYSTERY_DARK = 0x5f646d;
+const MYSTERY_STYLE = 'A mysterious rider coming soon...';
+const MYSTERY_MARK = { scale: 14, color: '#9aa3b2' }; // the "?" sitting in the "???" rider's tube
+const EMPTY_CELL = { fill: 0x245a9c, alpha: 0.25, lineAlpha: 0.3 }; // the custom row's unused spots
 
 // Remembered between visits: the last highlighted cell per mode, and the unfinished ladder
 // per mode that the player backed out of (READY carries it on).
@@ -70,7 +113,6 @@ function setFittedText(text, str, maxW) {
 }
 
 const formatHeight = (inches) => `${Math.floor(inches / 12)}'${inches % 12}"`;
-const swatchLeft = (count) => PANEL.x + (PANEL.w - (count * (SWATCH + SWATCH_GAP) - SWATCH_GAP)) / 2;
 
 // The scrolling custom row on top, then `rosterCount` riders below it: at least MIN_COLS
 // columns, more (and smaller cells) as the roster grows. at(row, col) is that spot's center.
@@ -116,20 +158,14 @@ function drawLock(g, x, y, size) {
   g.fillRect(x - 4 * k, y + 26 * k, 8 * k, 20 * k);
 }
 
-// The always-locked "???" rider in the last grid spot.
-function drawMysteryRider(g, x, y) {
-  g.fillStyle(MYSTERY_DARK, 1);
-  g.fillRect(x - 48, y - 118, 96, 118);
-  g.fillStyle(MYSTERY_GRAY, 1);
-  g.fillRect(x - 28, y - 176, 56, 56);
-}
-
 // 1-player rider select for one mode. The grid's top row scrolls sideways: unlocked secret
 // CHARACTERS, then the player's own custom riders, then a + for a new one. Below are the
 // other CHARACTERS with this mode's names and stats, locked until you beat them in this
 // mode, then a "???" spot that's always locked. On the right, the highlighted rider idles
-// on their tube next to their stats. A custom rider's stats are editable and it gets a
-// trunks picker; CHARACTERS always wear their own trunks.
+// on their tube next to their stats. A custom rider is Dan's picture made over: tabs under
+// its name edit its stats (STATS), its skin, hair and suit colors, its hair STYLE, and
+// its gender and build (BODY).
+// CHARACTERS always look like themselves.
 //
 // Each slot is { row, col, x, y, shown } plus `custom` (that rider's index; `plus` too for
 // the + at the end) or a CHARACTERS entry `c`, or `mystery`. The top row's col counts from
@@ -145,6 +181,9 @@ export class PlayerSelectScene extends Phaser.Scene {
       const key = this.spriteOf(c);
       if (key && !this.textures.exists(key)) this.load.image(key, c.sprites[this.difficulty]);
     }
+    const saved = Array.from({ length: customRiderCount(this.difficulty) }, (_, i) => customRider(this.difficulty, i).look);
+    const anims = [...BUILDS.map((build) => buildAnim(build)), ...saved.map(({ build, hairStyle, gender }) => buildAnim(build, hairStyle, gender))];
+    for (const anim of anims) if (!isRiderAnimLoaded(this, anim)) preloadRiderAnim(this, anim);
   }
 
   init(data) {
@@ -169,9 +208,10 @@ export class PlayerSelectScene extends Phaser.Scene {
     }
     addBackButton(this, 'Difficulty');
 
-    // 'grid' (arrows move between riders), or a custom rider's panel row: 'name', 'height',
-    // 'grip' or 'trunks'.
+    // 'grid' (arrows move between riders), or a custom rider's panel row: 'name', 'tabs',
+    // or one of the shown tab's rows.
     this.focus = 'grid';
+    this.tab = TABS[0].id;
     this.deleteArmed = false;
     this.cellObjects = [];
     this.makeGrid();
@@ -212,12 +252,17 @@ export class PlayerSelectScene extends Phaser.Scene {
 
   // The panel rows the keyboard moves through, top to bottom (none for CHARACTERS).
   get rows() {
-    return this.isCustom ? ['name', 'height', 'grip', 'trunks'] : [];
+    return this.isCustom ? ['name', 'tabs', ...TABS.find((t) => t.id === this.tab).rows] : [];
+  }
+
+  // A custom rider's look (see customRiders.js).
+  get look() {
+    return this.customOf(this.slot.custom).look;
   }
 
   // The texture key of CHARACTERS entry `c`'s sprite in this mode, or null if they're drawn.
   spriteOf(c) {
-    return c?.sprites?.[this.difficulty] ? `rider-sprite-${this.difficulty}-${c.id}` : null;
+    return spriteKey(c, this.difficulty);
   }
 
   customOf(index) {
@@ -352,6 +397,14 @@ export class PlayerSelectScene extends Phaser.Scene {
       this.cellObjects.push(hit, name);
       return name.setOrigin(0.5).setDepth(3);
     });
+    const shownTop = this.slots.filter((s) => s.row === 0 && s.shown).length;
+    for (let i = shownTop; i < topCols; i++) {
+      const { x, y } = topAt(i);
+      g.fillStyle(EMPTY_CELL.fill, EMPTY_CELL.alpha);
+      g.fillRect(x - cell / 2, y - cell / 2, cell, cell);
+      g.lineStyle(2, 0xffffff, EMPTY_CELL.lineAlpha);
+      g.strokeRect(x - cell / 2, y - cell / 2, cell, cell);
+    }
     this.drawArrows();
   }
 
@@ -420,12 +473,18 @@ export class PlayerSelectScene extends Phaser.Scene {
     this.nameText = addText(this, PANEL_CENTER_X, NAME_Y, '', { scale: 2 }).setOrigin(0.5);
     this.makeNameInput();
     this.previewG = this.add.graphics();
+    // The "???" rider: a big "?" sitting in a tube, between its back and front halves.
+    this.mysteryTube = [
+      this.add.image(0, 0, '__DEFAULT'),
+      addText(this, 0, 0, '?', { scale: MYSTERY_MARK.scale, color: MYSTERY_MARK.color }).setOrigin(0.5, 1),
+      this.add.image(0, 0, '__DEFAULT'),
+    ];
     this.previewSprite = this.add.image(PREVIEW.x, FEET_Y, '__DEFAULT').setOrigin(0.5, 1).setVisible(false);
 
     // Rows are moved into place by refresh().
     const stat = (str, color = '#ffffff') => addText(this, STATS_X, 0, str, { scale: 1, color }).setOrigin(0, 0.5);
     this.statLabels = { height: stat('HEIGHT', '#ffdd55'), grip: stat('GRIP STRENGTH', '#ffdd55'), endurance: stat('ENDURANCE', '#ffdd55') };
-    this.heightText = stat('');
+    this.heightText = addText(this, STATS_X, 0, '', { scale: 2 }).setOrigin(0, 0.5);
     this.gripG = this.add.graphics();
     this.enduranceG = this.add.graphics();
     const styleWrap = PANEL.x + PANEL.w - STATS_X - 12;
@@ -435,13 +494,20 @@ export class PlayerSelectScene extends Phaser.Scene {
 
     const left = STATS_X + STEP_BUTTON / 2;
     const right = STATS_X + STEPPER_W - STEP_BUTTON / 2;
-    const rows = STAT_ROWS.custom;
-    this.steppers = [
-      this.makeStepButton(left, rows.height, 'height', -1),
-      this.makeStepButton(right, rows.height, 'height', 1),
-      this.makeStepButton(left, rows.grip, 'grip', -1),
-      this.makeStepButton(right, rows.grip, 'grip', 1),
-    ];
+    const choiceYs = Object.fromEntries(Object.entries(CHOICES).map(([key, { y }]) => [key, y]));
+    const stepperYs = { height: STAT_ROWS.custom.height, grip: STAT_ROWS.custom.grip, shading: SHADING.y, ...choiceYs };
+    this.steppers = Object.entries(stepperYs).flatMap(([stat, y]) => [
+      this.makeStepButton(left, y, stat, -1),
+      this.makeStepButton(right, y, stat, 1),
+    ]);
+    this.makeTabs();
+    this.makeColorTabs();
+    this.choices = Object.fromEntries(
+      Object.entries(CHOICES).map(([key, { label, y }]) => [
+        key,
+        { label: stat(label, '#ffdd55').setY(y - LABEL_ABOVE), text: addText(this, STEPPER_MID, y, '', { scale: 2 }).setOrigin(0.5) },
+      ]),
+    );
 
     this.deleteButton = this.add
       .rectangle(STEPPER_MID, DELETE_Y, 150, 34, 0x9b2226)
@@ -462,14 +528,60 @@ export class PlayerSelectScene extends Phaser.Scene {
     this.addButton.on('pointerout', () => this.addButton.setFillStyle(0x2f7d32));
     this.addButton.on('pointerdown', () => this.pressAdd());
 
-    this.trunksLabel = addText(this, PANEL_CENTER_X, SWATCH_Y - 30, 'TRUNKS', { scale: 1, color: '#ffdd55' }).setOrigin(0.5);
-    this.swatchG = this.add.graphics();
-    this.swatchZones = [];
-
     this.lockG = this.add.graphics();
     drawLock(this.lockG, UNLOCK.x, UNLOCK.y - 3, 30);
     const textX = UNLOCK.x + 24;
     this.unlockText = addText(this, textX, UNLOCK.y, '', { scale: 1, color: '#ffdd55', wrap: PANEL.x + PANEL.w - 16 - textX }).setOrigin(0, 0.5);
+  }
+
+  makeTabs() {
+    const font = fontToFit(this, TABS.map((t) => t.label), TAB.w - 6);
+    this.tabButtons = TABS.map(({ id, label }, i) => {
+      const x = TABS_LEFT + TAB.w / 2 + i * (TAB.w + TAB.gap);
+      const rect = this.add.rectangle(x, TAB.y, TAB.w, TAB.h, TAB.fill).setStrokeStyle(2, 0xffffff).setInteractive({ useHandCursor: true });
+      const text = addText(this, x, TAB.y, label, { scale: 2, font }).setOrigin(0.5);
+      const fill = (hover) => () => rect.setFillStyle(id === this.tab ? TAB.chosen : hover ? TAB.hover : TAB.fill);
+      rect.on('pointerover', fill(true));
+      rect.on('pointerout', fill(false));
+      rect.on('pointerdown', () => {
+        this.setFocus('tabs');
+        this.showTab(id);
+      });
+      return { id, rect, text };
+    });
+  }
+
+  // Each color tab's swatches; one CUSTOM button and shading row serve them all.
+  makeColorTabs() {
+    const { y, size, gap, cols } = COLOR_GRID;
+    this.swatches = Object.fromEntries(
+      Object.entries(PALETTES).map(([part, palette]) => [
+        part,
+        palette.map((color, i) => {
+          const x = COLOR_GRID_LEFT + (i % cols) * (size + gap) + size / 2;
+          const rect = this.add.rectangle(x, y + Math.floor(i / cols) * (size + gap), size, size, color).setInteractive({ useHandCursor: true });
+          rect.on('pointerdown', () => {
+            this.setFocus('color');
+            this.editLook({ [part]: color });
+          });
+          return { color, rect };
+        }),
+      ]),
+    );
+    this.picker = addColorPicker(this, STEPPER_MID, PICKER.y, PICKER.w, PICKER.h, {
+      open: () => {
+        this.focus = 'color';
+        this.refresh();
+      },
+      pick: (color) => this.editLook({ [this.tab]: color }),
+    });
+    this.shadingLabel = addText(this, STATS_X, SHADING.y - LABEL_ABOVE, 'SHADING', { scale: 1, color: '#ffdd55' }).setOrigin(0, 0.5);
+    this.shadingText = addText(this, STEPPER_MID, SHADING.y, '', { scale: 2 }).setOrigin(0.5);
+  }
+
+  showTab(id) {
+    this.tab = id;
+    this.refresh();
   }
 
   // A real text box, so phones bring up their keyboard, but invisible: the box, the name
@@ -516,7 +628,7 @@ export class PlayerSelectScene extends Phaser.Scene {
     node.addEventListener('keyup', (e) => e.stopPropagation());
     node.addEventListener('keydown', (e) => {
       e.stopPropagation();
-      if (e.key === 'Enter' || e.key === 'ArrowDown' || e.key === 'Tab') this.setFocus('height');
+      if (e.key === 'Enter' || e.key === 'ArrowDown' || e.key === 'Tab') this.setFocus('tabs');
       else if (e.key === 'ArrowUp' || e.key === 'Escape') this.setFocus('grid');
       else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'Home') return e.preventDefault();
       else return;
@@ -606,10 +718,38 @@ export class PlayerSelectScene extends Phaser.Scene {
 
   // Left/right on the focused panel row.
   adjust(dir) {
-    if (this.focus === 'height' || this.focus === 'grip') return this.step(this.focus, dir);
-    if (this.focus !== 'trunks') return;
-    const current = Math.max(0, TRUNKS_COLORS.indexOf(this.currentTrunks()));
-    this.setTrunks(TRUNKS_COLORS[(current + dir + TRUNKS_COLORS.length) % TRUNKS_COLORS.length]);
+    if (this.focus === 'tabs') {
+      const i = TABS.findIndex((t) => t.id === this.tab);
+      return this.showTab(TABS[(i + dir + TABS.length) % TABS.length].id);
+    }
+    if (this.focus !== 'color') return this.step(this.focus, dir);
+    // From a CUSTOM color, to the first or last swatch.
+    const palette = PALETTES[this.tab];
+    const i = palette.indexOf(this.look[this.tab]);
+    const next = i < 0 ? (dir > 0 ? 0 : palette.length - 1) : (i + dir + palette.length) % palette.length;
+    this.editLook({ [this.tab]: palette[next] });
+  }
+
+  // The change to the custom rider's look after one step of 'shading' (the shown color
+  // tab's) or a CHOICES key, or null if that's past its limits. A new gender starts on
+  // its first hair style, in the same build if it comes in it.
+  lookStepped(stat, dir) {
+    const look = this.look;
+    if (CHOICES[stat]) {
+      const list = CHOICES[stat].list(look);
+      const i = list.indexOf(look[stat]) + dir;
+      if (i < 0 || i >= list.length) return null;
+      if (stat !== 'gender') return { [stat]: list[i] };
+      const gender = list[i];
+      return { gender, hairStyle: HAIR_STYLES[gender][0], build: genderBuilds(gender).includes(look.build) ? look.build : 'normal' };
+    }
+    const key = `${this.tab}Shading`;
+    const shading = Phaser.Math.Clamp(Math.round((look[key] + dir * SHADING.step) * 10) / 10, SHADING.min, SHADING.max);
+    return shading === look[key] ? null : { [key]: shading };
+  }
+
+  canStep(stat, dir) {
+    return Boolean(stat === 'height' || stat === 'grip' ? this.stepped(stat, dir) : this.lookStepped(stat, dir));
   }
 
   // The custom rider after one step of `stat`, or null if that's past its limits or budget.
@@ -624,6 +764,11 @@ export class PlayerSelectScene extends Phaser.Scene {
   }
 
   step(stat, dir) {
+    if (stat === 'shading' || CHOICES[stat]) {
+      const change = this.lookStepped(stat, dir);
+      if (change) this.editLook(change);
+      return;
+    }
     const next = this.stepped(stat, dir);
     if (next) return this.editCustom({ heightIn: next.heightIn, grip: next.grip });
     if (dir > 0) this.flashPoints();
@@ -671,13 +816,8 @@ export class PlayerSelectScene extends Phaser.Scene {
     this.select(this.cell);
   }
 
-  // Custom riders only.
-  currentTrunks() {
-    return this.customOf(this.slot.custom).trunks;
-  }
-
-  setTrunks(color) {
-    this.editCustom({ trunks: color });
+  editLook(change) {
+    this.editCustom({ look: { ...this.look, ...change } });
   }
 
   // Asks once, deletes on the second press.
@@ -729,10 +869,14 @@ export class PlayerSelectScene extends Phaser.Scene {
     const typed = custom ? stats.name.toUpperCase() : '';
     this.nameEntry.setVisible(custom).setText(typed || NAME_PLACEHOLDER).setColor(typed ? '#ffffff' : '#6f8296');
     const rows = custom ? STAT_ROWS.custom : STAT_ROWS.preset;
-    for (const [key, label] of Object.entries(this.statLabels)) label.setY(rows[key] - LABEL_ABOVE);
-    this.heightText.setText(s.mystery ? '??' : formatHeight(stats.heightIn)).setY(rows.height);
+    const tab = custom ? this.tab : null;
+    const statsShown = !custom || tab === 'stats';
+    for (const [key, label] of Object.entries(this.statLabels)) label.setY(rows[key] - LABEL_ABOVE).setVisible(statsShown);
+    this.heightText.setText(s.mystery ? '??' : formatHeight(stats.heightIn)).setY(rows.height).setVisible(statsShown);
     if (custom) this.heightText.setOrigin(0.5).setX(STEPPER_MID);
     else this.heightText.setOrigin(0, 0.5).setX(STATS_X);
+    this.gripG.setVisible(statsShown);
+    this.enduranceG.setVisible(statsShown);
     if (s.mystery) {
       this.drawPips(this.gripG, rows.grip, MAX_GRIP, false, MYSTERY_GRAY);
       this.drawPips(this.enduranceG, rows.endurance, MAX_GRIP, false, MYSTERY_GRAY);
@@ -740,14 +884,18 @@ export class PlayerSelectScene extends Phaser.Scene {
       this.drawPips(this.gripG, rows.grip, stats.grip, custom, GRIP_COLOR);
       this.drawPips(this.enduranceG, rows.endurance, enduranceRating(stats.heightIn), custom, ENDURANCE_COLOR);
     }
+    const colorTab = Boolean(PALETTES[tab]);
+    const choiceShown = Object.fromEntries(Object.entries(CHOICES).map(([key, c]) => [key, tab === c.tab]));
+    const stepperShown = { height: tab === 'stats', grip: tab === 'stats', shading: colorTab, ...choiceShown };
     this.steppers.forEach(({ stat, dir, rect, text }) => {
-      const alpha = custom && this.stepped(stat, dir) ? 1 : 0.4;
-      rect.setVisible(custom).setAlpha(alpha);
-      text.setVisible(custom).setAlpha(alpha);
+      const alpha = custom && this.canStep(stat, dir) ? 1 : 0.4;
+      rect.setVisible(stepperShown[stat]).setAlpha(alpha);
+      text.setVisible(stepperShown[stat]).setAlpha(alpha);
     });
-    this.styleText.setText(s.mystery || custom ? '' : s.c.style).setY(rows.style);
-    this.pointsLabel.setVisible(custom);
-    this.pointsText.setVisible(custom);
+    this.styleText.setText(s.mystery ? MYSTERY_STYLE : custom ? '' : s.c.style).setY(rows.style ?? 0);
+    this.pointsLabel.setVisible(tab === 'stats');
+    this.pointsText.setVisible(tab === 'stats');
+    this.refreshTabs(tab);
     if (custom) this.pointsText.setText(`${pointsLeft(stats)} OF ${CUSTOM.buildPoints}`);
     this.deleteButton.setVisible(this.isSaved);
     this.deleteText.setVisible(this.isSaved).setText(this.deleteArmed ? 'SURE?' : 'DELETE');
@@ -756,6 +904,7 @@ export class PlayerSelectScene extends Phaser.Scene {
     this.addButton.setVisible(Boolean(s.plus)).setAlpha(needsName ? 0.4 : 1);
     this.addLabel.setVisible(Boolean(s.plus)).setAlpha(needsName ? 0.4 : 1);
     this.previewG.setAlpha(locked && !s.mystery ? LOCKED_ALPHA : 1);
+    this.syncArt();
     const sprite = this.spriteOf(s.c);
     this.previewSprite.setVisible(sprite !== null).setAlpha(locked ? LOCKED_ALPHA : 1);
     if (sprite) {
@@ -763,13 +912,9 @@ export class PlayerSelectScene extends Phaser.Scene {
       this.previewSprite.setTexture(sprite).setScale(tall / this.previewSprite.height);
     }
 
-    this.trunksLabel.setVisible(custom);
-    this.swatchG.setVisible(custom);
     this.lockG.setVisible(locked);
     this.unlockText.setVisible(locked);
     if (locked) this.unlockText.setText(s.mystery ? '????' : unlockText(this.difficulty, s.c));
-    if (custom) this.makeSwatches(TRUNKS_COLORS, this.currentTrunks());
-    else this.makeSwatches([], null);
 
     this.ready.setAlpha(locked ? 0.4 : 1);
     this.readyText.setAlpha(locked ? 0.4 : 1);
@@ -778,9 +923,55 @@ export class PlayerSelectScene extends Phaser.Scene {
     const keys = {
       grid: custom ? 'Arrows: choose rider    Enter: select' : 'Arrows: choose rider    Enter: ride!',
       name: 'Type a name    ↓ next    ↑ back to riders',
-      trunks: `← → trunks color    ↑ ↓ choose    ${enter}`,
+      tabs: `← → choose a tab    ↑ ↓ choose    ${enter}`,
+      color: `← → ${TABS.find((t) => t.id === this.tab).label.toLowerCase()} color    ↑ ↓ choose    ${enter}`,
     }[this.focus] ?? `← → change    ↑ ↓ choose    ${enter}`;
     this.hint.setText(IS_MOBILE ? 'Tap + to make your own rider, or pick one, then READY!' : keys);
+  }
+
+  // The tabs and what's on the shown one; `tab` is null for CHARACTERS.
+  refreshTabs(tab) {
+    for (const { id, rect, text } of this.tabButtons) {
+      rect.setVisible(tab !== null).setFillStyle(id === tab ? TAB.chosen : TAB.fill);
+      text.setVisible(tab !== null);
+    }
+    for (const [part, swatches] of Object.entries(this.swatches)) {
+      const chosen = tab === part ? this.look[part] : null;
+      for (const { color, rect } of swatches) {
+        rect.setVisible(tab === part).setStrokeStyle(color === chosen ? 4 : 2, color === chosen ? HIGHLIGHT : 0xffffff, color === chosen ? 1 : 0.6);
+      }
+    }
+    const colorTab = Boolean(PALETTES[tab]);
+    this.picker.objects.forEach((o) => o.setVisible(colorTab));
+    this.shadingLabel.setVisible(colorTab);
+    this.shadingText.setVisible(colorTab);
+    if (colorTab) {
+      const color = this.look[tab];
+      this.picker.show(color, !PALETTES[tab].includes(color));
+      this.shadingText.setText(`x${this.look[`${tab}Shading`].toFixed(1)}`);
+    }
+    for (const [key, { label, text }] of Object.entries(this.choices)) {
+      const shown = CHOICES[key].tab === tab;
+      label.setVisible(shown);
+      text.setVisible(shown);
+      if (!shown) continue;
+      text.setFontSize(2).setText(key === 'hairStyle' ? hairStyleLabel(this.look[key]) : this.look[key].toUpperCase());
+      if (text.width > STEPPER_W - 2 * STEP_BUTTON - 8) text.setFontSize(1);
+    }
+  }
+
+  // A custom rider's picture, in its gender, build, hair style and colors. Hair styles'
+  // pictures load when first needed; until then it keeps the last ones.
+  syncArt() {
+    if (!this.isCustom) return this.art?.setVisible(false);
+    const look = this.look;
+    const anim = buildAnim(look.build, look.hairStyle, look.gender);
+    if (!isRiderAnimLoaded(this, anim)) loadRiderAnim(this, anim, () => this.syncArt());
+    else if (this.art?.anim.key !== anim.key) {
+      this.art?.destroy();
+      this.art = new TubeRider(this, anim);
+    }
+    this.art?.setColors(look).setVisible(true);
   }
 
   // A 1-to-5 stat as a row of boxes, `filled` of them lit; centered under the steppers for
@@ -798,28 +989,14 @@ export class PlayerSelectScene extends Phaser.Scene {
     }
   }
 
-  makeSwatches(palette, selected) {
-    this.swatchZones.forEach((z) => z.destroy());
-    const g = this.swatchG;
-    g.clear();
-    const left = swatchLeft(palette.length);
-    this.swatchLeft = left;
-    this.swatchZones = palette.map((color, i) => {
-      const x = left + i * (SWATCH + SWATCH_GAP);
-      const chosen = color === selected;
-      const grow = chosen ? 4 : 0;
-      g.fillStyle(color, 1);
-      g.fillRoundedRect(x - grow, SWATCH_Y - SWATCH / 2 - grow, SWATCH + grow * 2, SWATCH + grow * 2, 6);
-      g.lineStyle(chosen ? 4 : 2, 0xffffff, chosen ? 1 : 0.6);
-      g.strokeRoundedRect(x - grow, SWATCH_Y - SWATCH / 2 - grow, SWATCH + grow * 2, SWATCH + grow * 2, 6);
-
-      const zone = this.add.zone(x + SWATCH / 2, SWATCH_Y, SWATCH + SWATCH_GAP, SWATCH + 8).setInteractive({ useHandCursor: true });
-      zone.on('pointerdown', () => {
-        this.setFocus('trunks');
-        this.setTrunks(color);
-      });
-      return zone;
-    });
+  // With its bottom center at (PREVIEW.x, y), the "?" on its seat.
+  placeMysteryTube(y) {
+    const tube = tubeTextures(this, { width: TUBE_WIDTH, handle: 1, crisp: true, color: PLAYER_TUBE });
+    const [back, mark, front] = this.mysteryTube;
+    for (const [image, key] of [[back, tube.back], [front, tube.front]]) {
+      image.setTexture(key).setOrigin(tube.origin.x, tube.origin.y).setScale(ART_TEXEL).setPosition(PREVIEW.x, y);
+    }
+    mark.setPosition(PREVIEW.x + tube.seat.x * ART_TEXEL, y + tube.seat.y * ART_TEXEL);
   }
 
   // The outline around the focused panel row, if any.
@@ -828,13 +1005,21 @@ export class PlayerSelectScene extends Phaser.Scene {
     switch (this.focus) {
       case 'name':
         return { x: PANEL_CENTER_X - NAME_BOX.w / 2 - 8, y: NAME_Y - NAME_BOX.h / 2 - 8, w: NAME_BOX.w + 16, h: NAME_BOX.h + 16 };
+      case 'tabs':
+        return { x: TABS_LEFT - 5, y: TAB.y - TAB.h / 2 - 5, w: TABS_W + 10, h: TAB.h + 10 };
       case 'height':
         return stepper(STAT_ROWS.custom.height);
       case 'grip':
         return stepper(STAT_ROWS.custom.grip);
-      case 'trunks': {
-        const w = this.swatchZones.length * (SWATCH + SWATCH_GAP) - SWATCH_GAP + 20;
-        return { x: this.swatchLeft - 10, y: SWATCH_Y - SWATCH / 2 - 10, w, h: SWATCH + 20 };
+      case 'shading':
+        return stepper(SHADING.y);
+      case 'gender':
+      case 'build':
+      case 'hairStyle':
+        return stepper(CHOICES[this.focus].y);
+      case 'color': {
+        const top = COLOR_GRID.y - COLOR_GRID.size / 2 - 6;
+        return { x: STATS_X - 6, y: top, w: STEPPER_W + 12, h: PICKER.y + PICKER.h / 2 + 6 - top };
       }
       default:
         return null;
@@ -867,6 +1052,7 @@ export class PlayerSelectScene extends Phaser.Scene {
     // Idle: floating on the water, swaying side to side.
     const g = this.previewG;
     g.clear();
+    this.mysteryTube.forEach((o) => o.setVisible(Boolean(this.slot.mystery)));
     if (this.spriteOf(this.slot.c)) return;
     const waterY = this.isCustom ? PREVIEW_Y.custom : PREVIEW_Y.preset;
     const floatY = waterY + Math.sin(t * 2.3) * 3;
@@ -874,7 +1060,16 @@ export class PlayerSelectScene extends Phaser.Scene {
     g.fillEllipse(PREVIEW.x, waterY + 6, 212, 40);
     g.lineStyle(2, 0xbfe9ff, 0.5 + 0.3 * Math.sin(t * 2.3));
     g.strokeEllipse(PREVIEW.x, waterY + 6, 190 + Math.sin(t * 2.3) * 8, 30);
-    if (this.slot.mystery) return drawMysteryRider(g, PREVIEW.x, floatY);
+    if (this.slot.mystery) return this.placeMysteryTube(floatY);
+    if (this.isCustom) {
+      if (!this.art) return;
+      const { hold } = ATTACK_ANIM;
+      const tube = tubeTextures(this, { width: TUBE_WIDTH, handle: this.art.holdsFarHandle(hold) ? 0 : 1, crisp: true, color: PLAYER_TUBE });
+      const heightIn = this.customOf(this.slot.custom).heightIn * ART_SCALE[this.difficulty];
+      const lean = Math.sin(t * 1.7) * 0.35;
+      this.art.place(tube, PREVIEW.x, floatY, ART_TEXEL * TEXELS_PER_UNIT, { heightIn, lean, frame: hold });
+      return;
+    }
     const rider = this.previews[this.cell];
     rider.leanVisual = Math.sin(t * 1.7) * 0.35;
     drawRider(g, rider, { x: PREVIEW.x, y: floatY, s: PREVIEW.s }, t);

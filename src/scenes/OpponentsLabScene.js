@@ -2,23 +2,23 @@ import Phaser from 'phaser';
 import { WIDTH, HEIGHT } from '../config.js';
 import { CHARACTERS } from '../characters.js';
 import { tubeTextures, TEXELS_PER_UNIT, TUBE_WIDTH } from '../tubeArt.js';
-import { TubeRider, preloadRiderAnim, attackAnim, ATTACK_ANIM } from '../riderArt.js';
-import { artColors } from '../riderColors.js';
-import { KEYMAPS } from '../input.js';
+import { TubeRider, preloadRiderAnim, attackAnim, ATTACK_ANIM, ART_SCALE } from '../riderArt.js';
+import { characterArt } from '../campaign.js';
 import { addText } from '../pixelFont.js';
 import { addBackButton } from './ui.js';
 import { LAB_ATTACKS, STRIKE_STAGE, WIND_BACK_STAGE } from './AttackLabScene.js';
 
 // A test bench for the ladder opponents' attack art (OPPONENTS on the Labs screen, or
-// ?lab=opponents): each one's head (art/riders/heads/) on Dan's attack frames, in their
-// own skin and trunks colors and height, all attacking together.
+// ?lab=opponents): each one's head for the chosen year on their build's attack frames, in
+// their own colors and height, all attacking together. BonusLabScene does the same for
+// the riders off the ladder.
 
 const HEADER_H = 96;
 const BAR = { h: 44, fill: 0x0d2a4a };
+// GRID.cols riders across, at least GRID.rows down; more rows draw everyone smaller.
 const GRID = { cols: 3, rows: 2 };
 const CELL_W = WIDTH / GRID.cols;
-const CELL_H = (HEIGHT - HEADER_H - BAR.h) / GRID.rows;
-const TEXEL = 1;
+const TEXEL = 1; // at GRID.rows rows
 const RIDER_X = 165; // the tube's center, in from a cell's left edge
 const RIDER_BOTTOM = 8; // the tube's bottom, up from a cell's bottom edge
 const LABEL = { x: 12, y: 14 };
@@ -33,21 +33,23 @@ const AUTO_EVERY = 1.6; // seconds between auto attacks, which take turns
 const SLOW_MOTION = 0.25;
 const formatHeight = (inches) => `${Math.floor(inches / 12)}'${inches % 12}"`;
 
-const OPPONENTS = CHARACTERS.filter((c) => c.ladderId).sort((a, b) => a.ladderId - b.ladderId);
+const LADDER = CHARACTERS.filter((c) => c.ladderId).sort((a, b) => a.ladderId - b.ladderId);
 
 export class OpponentsLabScene extends Phaser.Scene {
-  constructor() {
-    super('OpponentsLab');
+  constructor(key = 'OpponentsLab', { title = 'OPPONENTS LAB', riders = LADDER } = {}) {
+    super(key);
+    this.title = title;
+    this.riders = riders;
   }
 
   preload() {
-    for (const c of OPPONENTS) preloadRiderAnim(this, attackAnim(c.id));
+    for (const c of this.riders) for (const { mode } of MODES) preloadRiderAnim(this, attackAnim(c, mode));
   }
 
   create() {
     this.add.rectangle(0, 0, WIDTH, HEIGHT, 0x2f7fc1).setOrigin(0);
     this.add.rectangle(0, 0, WIDTH, HEADER_H, 0x0d2a4a).setOrigin(0);
-    addText(this, WIDTH / 2, 28, 'OPPONENTS LAB', { scale: 4, color: '#ffdd55' }).setOrigin(0.5);
+    addText(this, WIDTH / 2, 28, this.title, { scale: 4, color: '#ffdd55' }).setOrigin(0.5);
     addText(this, WIDTH / 2, 66, 'R punch   F mid kick   V low kick   T auto   M slow   C colors', { scale: 2 }).setOrigin(0.5);
     addBackButton(this, 'Labs');
 
@@ -70,24 +72,26 @@ export class OpponentsLabScene extends Phaser.Scene {
 
     this.buildCells();
     this.buildBar();
-    this.recolor();
     this.showMode();
   }
 
   buildCells() {
+    const rows = Math.max(GRID.rows, Math.ceil(this.riders.length / GRID.cols));
+    const cellH = (HEIGHT - HEADER_H - BAR.h) / rows;
+    this.texel = (TEXEL * GRID.rows) / rows;
     const g = this.add.graphics().lineStyle(2, 0x0d2a4a, 0.5);
     for (let col = 1; col < GRID.cols; col++) g.lineBetween(col * CELL_W, HEADER_H, col * CELL_W, HEIGHT - BAR.h);
-    for (let row = 1; row < GRID.rows; row++) g.lineBetween(0, HEADER_H + row * CELL_H, WIDTH, HEADER_H + row * CELL_H);
-    this.cells = OPPONENTS.map((c, i) => {
+    for (let row = 1; row < rows; row++) g.lineBetween(0, HEADER_H + row * cellH, WIDTH, HEADER_H + row * cellH);
+    this.cells = this.riders.map((c, i) => {
       const left = (i % GRID.cols) * CELL_W;
-      const top = HEADER_H + Math.floor(i / GRID.cols) * CELL_H;
+      const top = HEADER_H + Math.floor(i / GRID.cols) * cellH;
       return {
         c,
         x: left + RIDER_X,
-        y: top + CELL_H - RIDER_BOTTOM,
-        rider: new TubeRider(this, attackAnim(c.id)),
-        name: addText(this, left + LABEL.x, top + LABEL.y, '', { scale: 2, color: '#ffdd55' }),
-        stats: addText(this, left + LABEL.x, top + LABEL.y + 20, '', { scale: 2, font: 'small' }),
+        y: top + cellH - RIDER_BOTTOM,
+        rider: null,
+        name: addText(this, left + LABEL.x, top + LABEL.y, '', { scale: 2, color: '#ffdd55' }).setDepth(1),
+        stats: addText(this, left + LABEL.x, top + LABEL.y + 22, '', { scale: 2, font: 'small' }).setDepth(1),
       };
     });
   }
@@ -113,19 +117,25 @@ export class OpponentsLabScene extends Phaser.Scene {
   }
 
   recolor() {
-    for (const { c, rider } of this.cells) rider.setColors(this.ownColors ? artColors(c) : {});
+    for (const { c, rider } of this.cells) rider.setColors(this.ownColors ? characterArt(c, this.mode).colors : {});
   }
 
+  // Each rider's name, height and pictures (their head can change) in the chosen year.
   showMode() {
     this.modeTabs.forEach((t, i) => t.setFillStyle(MODES[i].mode === this.mode ? TABS.chosen : TABS.fill));
     const easy = this.mode === 'easy';
     for (const cell of this.cells) {
       const { c } = cell;
       const { heightIn, grip } = c.stats[this.mode];
-      cell.heightIn = heightIn;
+      cell.artHeightIn = heightIn * ART_SCALE[this.mode];
       cell.name.setText((easy ? (c.name ?? c.id) : c.nickname).toUpperCase());
-      cell.stats.setText(`${formatHeight(heightIn)}   GRIP ${grip}`);
+      cell.stats.setText(`${formatHeight(heightIn)}\nGRIP ${grip}\n${(c.body ?? 'normal').toUpperCase()}`);
+      const anim = attackAnim(c, this.mode);
+      if (cell.rider?.anim.key === anim.key) continue;
+      cell.rider?.destroy();
+      cell.rider = new TubeRider(this, anim);
     }
+    this.recolor();
   }
 
   startAttack(index) {
@@ -159,11 +169,11 @@ export class OpponentsLabScene extends Phaser.Scene {
     this.attackTabs.forEach((t, i) => t.setFillStyle(i === this.chosen ? TABS.chosen : TABS.fill));
 
     // A held handle is drawn with the rider, so the tube only draws its own while it's let go.
-    this.cells.forEach(({ rider, x, y, heightIn }, i) => {
+    this.cells.forEach(({ rider, x, y, artHeightIn: heightIn }, i) => {
       const handle = rider.holdsFarHandle(frame) ? 0 : 1;
       const tube = tubeTextures(this, { width: TUBE_WIDTH, handle, crisp: true });
       const bob = Math.sin(this.clock * BOB.speed + i * 1.3) * BOB.height;
-      rider.place(tube, x, y + bob, TEXEL * TEXELS_PER_UNIT, { heightIn, frame });
+      rider.place(tube, x, y + bob, this.texel * TEXELS_PER_UNIT, { heightIn, frame });
     });
 
     const now = stage ? `${LAB_ATTACKS[this.attack.index].label}: ${stage.label}` : 'HOLD';

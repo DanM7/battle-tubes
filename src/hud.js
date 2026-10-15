@@ -1,11 +1,17 @@
 import { WIDTH, VIEW, RIDER, MATCH, BOAT, ENDURANCE } from './config.js';
 import { settings } from './settings.js';
 import { addText } from './pixelFont.js';
+import { formatScore } from './score.js';
 
 const BAR_W = 200;
 const BAR_H = 12;
 const MARGIN = 16;
-const SPEED_Y = 64;
+const SCORE_Y = 6;
+const WARNING_Y = 52; // between the bars' labels, under the score
+const SPEED_Y = 80;
+const GAIN_Y = SCORE_Y + 5; // level with the middle of the score
+const GAIN_GAP = 10;
+const RESULTS = { w: 440, lineH: 30, pad: 14, gap: 32 }; // gap: below the status line
 const ICON_SIZE = 34;
 const ICON_Y = 98;
 const ICON_FILL = 0x1d4e89;
@@ -32,7 +38,7 @@ export class Hud {
 
     this.status = addText(scene, WIDTH / 2, STATUS_Y, '', { scale: 5, align: 'center', wrap: WIDTH - 60 }).setOrigin(0.5).setDepth(60);
     this.sub = addText(scene, WIDTH / 2, SUB_Y, '', { scale: 3, align: 'center' }).setOrigin(0.5).setDepth(60);
-    this.warning = addText(scene, WIDTH / 2, 30, '', { scale: 3, color: '#ffdd55' }).setOrigin(0.5).setDepth(60);
+    this.warning = addText(scene, WIDTH / 2, WARNING_Y, '', { scale: 2, color: '#ffdd55' }).setOrigin(0.5).setDepth(60);
     this.speed = addText(scene, WIDTH / 2 - 8, SPEED_Y, '', { scale: 2 }).setOrigin(0, 0.5).setDepth(60);
 
     const gearX = MARGIN + ICON_SIZE / 2;
@@ -63,6 +69,34 @@ export class Hud {
   flashStatus(main) {
     this.setStatus(main);
     this.scene.tweens.add({ targets: this.status, alpha: 0, delay: 500, duration: 300 });
+  }
+
+  // The 1 Player score at the top, with `gained` popping up beside it.
+  setScore(score, gained = 0) {
+    if (!this.scoreText) {
+      this.scoreText = addText(this.scene, WIDTH / 2, SCORE_Y, '', { scale: 3 }).setOrigin(0.5, 0).setDepth(60);
+      this.gainText = addText(this.scene, 0, SCORE_Y, '', { scale: 2, color: '#7dff7d' }).setDepth(60);
+    }
+    this.scoreText.setText(`SCORE ${formatScore(score)}`);
+    if (gained <= 0) return;
+    const gain = this.gainText;
+    this.scene.tweens.killTweensOf(gain);
+    gain.setText(`+${formatScore(gained)}`).setPosition(WIDTH / 2 + this.scoreText.width / 2 + GAIN_GAP, GAIN_Y).setAlpha(1);
+    this.scene.tweens.add({ targets: gain, alpha: 0, y: GAIN_Y - 6, delay: 600, duration: 400 });
+  }
+
+  // A panel of [text, color] lines under the status, for the end of a match.
+  showResults(lines) {
+    const h = lines.length * RESULTS.lineH + RESULTS.pad * 2;
+    const top = SUB_Y + RESULTS.gap;
+    this.scene.add
+      .rectangle(WIDTH / 2, top + h / 2, RESULTS.w, h, 0x0d2a4a, 0.8)
+      .setStrokeStyle(3, 0xffffff)
+      .setDepth(59);
+    lines.forEach(([text, color = '#ffffff'], i) => {
+      const y = top + RESULTS.pad + (i + 0.5) * RESULTS.lineH;
+      addText(this.scene, WIDTH / 2, y, text, { scale: 3, color }).setOrigin(0.5).setDepth(60);
+    });
   }
 
   update(riders, wins, bend, time, boat) {

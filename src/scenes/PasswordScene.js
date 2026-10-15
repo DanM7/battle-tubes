@@ -22,7 +22,7 @@ const ALREADY_COLOR = '#ffdd55';
 
 // Typing in a password: on-screen letter keys (or the keyboard), DEL, and SUBMIT. A rider's
 // password (unlock.password in characters.js) unlocks them in every mode, and
-// UNLOCK_ALL_PASSWORD unlocks them all.
+// UNLOCK_ALL_PASSWORD unlocks all the riders on the select screen (not secret ones).
 export class PasswordScene extends Phaser.Scene {
   constructor() {
     super('Password');
@@ -123,7 +123,7 @@ export class PasswordScene extends Phaser.Scene {
     }
 
     if (password === UNLOCK_ALL_PASSWORD) {
-      const newlyUnlocked = CHARACTERS.filter((c) => c.unlock && recordPasswordUnlock(c.id));
+      const newlyUnlocked = CHARACTERS.filter((c) => c.unlock && !c.secret && recordPasswordUnlock(c.id));
       if (newlyUnlocked.length) return this.say('ALL RIDERS UNLOCKED!', UNLOCKED_COLOR);
       return this.say('ALL RIDERS ALREADY UNLOCKED', ALREADY_COLOR);
     }

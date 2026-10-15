@@ -1,12 +1,32 @@
 // Riders the player made on the rider select screen, saved in the browser: a list per mode,
-// up to CUSTOM.maxRiders. A rider is { name, color, trunks, heightIn, grip }.
+// up to CUSTOM.maxRiders. A rider is { name, color, heightIn, grip, look }, where `look`
+// is how their picture is drawn: { skin, hair, trunks, skinShading, hairShading,
+// trunksShading } as riderTexture() in riderColors.js takes them, plus `gender` (a GENDERS
+// entry in riderArt.js), `build` (one of genderBuilds()) and `hairStyle` (one of that
+// gender's HAIR_STYLES).
 import { CUSTOM } from './config.js';
 import { fitBudget } from './build.js';
+import { DAN_COLORS, artColors } from './riderColors.js';
+import { GENDERS, HAIR_STYLES } from './riderArt.js';
 
 const KEY = 'battle-tubes-custom';
 
+const newLook = (index) => ({
+  ...DAN_COLORS,
+  trunks: CUSTOM.trunks[index % CUSTOM.trunks.length],
+  gender: GENDERS[0],
+  build: 'normal',
+  hairStyle: HAIR_STYLES[GENDERS[0]][0],
+});
+
+// Saves from before riders had a look only had a match's trunks color: they get Dan's
+// look in those trunks. Older looks get what's been added since as Dan has it.
+function withLook({ trunks, ...rider }) {
+  return { ...rider, look: { ...newLook(0), ...(rider.look ?? { trunks: artColors({ trunks }).trunks }) } };
+}
+
 // Saves from before the list could grow have empty (null) slots; those are dropped.
-const fit = (list) => (Array.isArray(list) ? list.filter(Boolean).slice(0, CUSTOM.maxRiders).map(fitBudget) : []);
+const fit = (list) => (Array.isArray(list) ? list.filter(Boolean).slice(0, CUSTOM.maxRiders).map((r) => fitBudget(withLook(r))) : []);
 
 const riders = load();
 
@@ -38,16 +58,16 @@ export const customName = (rider) => rider.name.trim() || CUSTOM.name;
 export const newCustomRider = (difficulty, index) => ({
   name: '',
   color: CUSTOM.shirts[index % CUSTOM.shirts.length],
-  trunks: CUSTOM.trunks[index % CUSTOM.trunks.length],
   heightIn: CUSTOM.heightIn[difficulty],
   grip: CUSTOM.grip,
+  look: newLook(index),
 });
 
 // Saving one past the end adds a rider.
 export function saveCustomRider(difficulty, index, rider) {
   const list = riders[difficulty];
   if (index > list.length || index >= CUSTOM.maxRiders) return;
-  list[index] = { ...rider };
+  list[index] = { ...rider, look: { ...rider.look } };
   save();
 }
 

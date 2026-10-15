@@ -42,8 +42,12 @@ export const PHYSICS = {
   duckLeanFactor: 0.5,
 };
 
+// How a match draws riders: their pictures (riderArt.js) `scale` times as big as world
+// units make them, in tubes (tubeArt.js) `tubeWidth` world units across before that.
+export const RIDER_ART = { scale: 2, tubeWidth: 120 };
+
 export const RIDER = {
-  tubeWidth: 180,
+  tubeWidth: RIDER_ART.tubeWidth * RIDER_ART.scale, // tubes bump where they're drawn
   tubeHeight: 50,
   bodyWidth: 95,
   bodyBottom: 40,
@@ -68,11 +72,13 @@ export const RIDER = {
 export const RIVER = {
   segmentLength: 200,
   // River half-widths. The shore is reachable only when halfWidth - tubeWidth / 2
-  // is inside PHYSICS.swingLimit, so wide and medium water are scrape-free.
+  // is inside PHYSICS.swingLimit, so wide and medium water are scrape-free and the banks
+  // sit well off to the sides; only the odd short narrows bring them into play.
+  // `hold` (segments) overrides widthHoldMin/Max.
   widths: {
-    wide: { halfWidth: 1200, weight: 0.4 },
-    medium: { halfWidth: 960, weight: 0.35 },
-    narrow: { halfWidth: 620, weight: 0.25 },
+    wide: { halfWidth: 2300, weight: 0.5 },
+    medium: { halfWidth: 1700, weight: 0.4 },
+    narrow: { halfWidth: 720, weight: 0.1, hold: [20, 45] },
   },
   widthHoldMin: 40, // segments
   widthHoldMax: 110,
@@ -175,7 +181,8 @@ export const BUMP = {
 };
 
 // reachStart/reachEnd: how far the attack box extends from the rider's center
-// (reachEnd grows with the attacker's height).
+// (reachEnd grows with the attacker's height; it's set past where touching tubes put the
+// other rider).
 // yBottom/yTop: attack height above the water; it must overlap the target hurtbox to land.
 // aimsAtTarget: heights are for a base-height target and scale to the actual target's
 // standing height, so punches find the head and kicks find the torso at any height.
@@ -186,7 +193,7 @@ export const ATTACKS = {
     active: 0.1,
     recovery: 0.35,
     reachStart: 30,
-    reachEnd: 230,
+    reachEnd: RIDER.tubeWidth + 50,
     yBottom: 140,
     yTop: 172,
     aimsAtTarget: true,
@@ -202,7 +209,7 @@ export const ATTACKS = {
     active: 0.12,
     recovery: 0.3,
     reachStart: 30,
-    reachEnd: 300,
+    reachEnd: RIDER.tubeWidth + 120,
     yBottom: 60,
     yTop: 95,
     aimsAtTarget: true,
@@ -218,7 +225,7 @@ export const ATTACKS = {
     active: 0.12,
     recovery: 0.38,
     reachStart: 40,
-    reachEnd: 280,
+    reachEnd: RIDER.tubeWidth + 100,
     yBottom: 12,
     yTop: 40,
     target: 'tube',
@@ -264,6 +271,25 @@ export const MATCH = {
   roundOverDelay: 2.5,
 };
 
+// 1 Player points (the Scoring screen explains them). Everything scored in a match is
+// multiplied by 1 + rungStep for each rung up the ladder that opponent stands.
+export const SCORE = {
+  hit: { high: 100, mid: 75, low: 50, looseGrip: 150 },
+  duck: 100,
+  dodge: 150,
+  stomp: 500,
+  air: 50,
+  bigAir: 150,
+  kitPerPoint: 10, // per point of balance and air a health kit gives back
+  roundWin: 1000,
+  leftover: 1000, // more for winning a round on full balance and full tube air
+  matchWin: 2500,
+  sweep: 2500, // more for winning the match without losing a round
+  champion: 10000,
+  rungStep: 0.5,
+  tableSize: 5, // high scores kept per mode
+};
+
 export const CPU_DEADZONE = 40;
 
 // How sharp the CPU is, by ladder rung (one entry per rung; the last is always the boss).
@@ -282,7 +308,7 @@ export const CPU_SKILL_BY_RUNG = [
 // This is only how the CPU fights; names, looks, height, grip, weight and the
 // description shown to players are in src/characters.js.
 //   attacks:           relative preference for each attack
-//   preferredDistance: center-to-center spacing it tries to hold (tubes touch at 180)
+//   preferredDistance: center-to-center spacing it tries to hold (tubes touch at RIDER.tubeWidth)
 //   strafe:            how far that spacing drifts in and out over time
 //   aggression:        attack-rate multiplier
 //   sloppiness:        chance it throws an attack even when you're out of reach
@@ -307,7 +333,7 @@ export const OPPONENTS = {
   Chillo: {
     ...PERSONA_DEFAULTS,
     attacks: { high: 1, mid: 1, low: 1 },
-    preferredDistance: 240,
+    preferredDistance: RIDER.tubeWidth + 60,
     strafe: 60,
     aggression: 0.9,
     sloppiness: 0.35,
@@ -318,7 +344,7 @@ export const OPPONENTS = {
   Moni: {
     ...PERSONA_DEFAULTS,
     attacks: { high: 0.1, mid: 1, low: 0.7 },
-    preferredDistance: 320,
+    preferredDistance: RIDER.tubeWidth + 140,
     strafe: 45,
     aggression: 0.75,
     defense: 1.4,
@@ -330,7 +356,7 @@ export const OPPONENTS = {
   Franzi: {
     ...PERSONA_DEFAULTS,
     attacks: { high: 1, mid: 0.7, low: 0.4 },
-    preferredDistance: 190,
+    preferredDistance: RIDER.tubeWidth + 10,
     aggression: 1.7,
     defense: 0.6,
     counter: 0.4,
@@ -339,7 +365,7 @@ export const OPPONENTS = {
   Burton: {
     ...PERSONA_DEFAULTS,
     attacks: { high: 0.4, mid: 1, low: 0.4 },
-    preferredDistance: 200,
+    preferredDistance: RIDER.tubeWidth + 20,
     aggression: 1,
     defense: 0.8,
     counter: 0.6,
@@ -355,7 +381,7 @@ export const OPPONENTS = {
   'B-Nap': {
     ...PERSONA_DEFAULTS,
     attacks: { high: 0.8, mid: 0.8, low: 0.8 },
-    preferredDistance: 225,
+    preferredDistance: RIDER.tubeWidth + 45,
     aggression: 1.2,
     defense: 1.2,
     counter: 1.5,
@@ -384,9 +410,6 @@ export const MAX_GRIP = 5;
 // band) and what their height costs a custom rider (0 for the shortest, 1 more per band).
 export const HEIGHT_BANDS = [60, 65, 70, 74, Infinity]; // up to 5'0", 5'5", 5'10", 6'2", taller
 
-// Trunks colors offered on the rider select screen.
-export const TRUNKS_COLORS = [0xd62828, 0xf77f00, 0xfcd34d, 0x84cc16, 0x14b8a6, 0x1d4ed8, 0xec4899, 0x1f2937];
-
 // Riders you make yourself: the top row of the rider select screen. Each mode keeps its own.
 export const CUSTOM = {
   maxRiders: 24, // per mode; past this the row has no +
@@ -400,11 +423,12 @@ export const CUSTOM = {
   // grip - 1 (0-4). Opponents in characters.js don't have to fit.
   buildPoints: 5,
   shirts: [0xe04848, 0x8e44ad, 0x16a085, 0x00b4d8], // shirt colors, taken in turn by new riders
-  trunks: [0x1d4ed8, 0xd62828, 0xfcd34d, 0x1f2937], // a new rider's starting trunks, in turn
+  trunks: [0x1d4ed8, 0xd62828, 0xfcd34d, 0x1f2937], // a new rider's starting trunks (picture colors), in turn
 };
 
-// Entering this on the Password screen unlocks every rider in every mode, as if you'd
-// entered each one's own password.
+// Entering this on the Password screen unlocks every rider on the select screen in every
+// mode, as if you'd entered each one's own password. Secret riders (characters.js) still
+// need their own.
 export const UNLOCK_ALL_PASSWORD = 'CROM';
 
 // Cheats, keyed by their settings.js flag. Entering the password on the Password screen

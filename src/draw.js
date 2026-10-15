@@ -1,4 +1,4 @@
-import { RIDER, PICKUPS, WAKE, ROPE_LENGTH, RIDER_Z, SKIN } from './config.js';
+import { RIDER, PICKUPS, WAKE, ROPE_LENGTH, RIDER_Z } from './config.js';
 import { wakeHeight, wakeProfile } from './wake.js';
 
 // Placeholder rectangle art. Each `p` is a projected point { x, y, s } where
@@ -7,8 +7,8 @@ import { wakeHeight, wakeProfile } from './wake.js';
 const TRUNKS_HEIGHT = 30; // swim trunks band at the bottom of the torso
 const HITBOX_OUTLINE = 0x00ff88;
 const ONE_HANDED_OUTLINE = 0xff6b00; // tube outline while punching: it takes extra damage
-const WAKE_TOP = 0x4a9ad8; // the raised water between the crests
-const WAKE_FACE = 0x2364a0; // the outer faces
+const WAKE_TOP = 0x4a82b4; // the raised water between the crests (river.js's water, lit)
+const WAKE_FACE = 0x24527c; // the outer faces
 const WAKE_SLICES = 24;
 const WAKE_NEAR_DEPTH = RIDER_Z * 0.65; // just past the bottom of the screen
 
@@ -17,6 +17,13 @@ const WAKE_NEAR_DEPTH = RIDER_Z * 0.65; // just past the bottom of the screen
 function wakeAt(zAhead, boatDepth, amp) {
   const k = (boatDepth - zAhead) / ROPE_LENGTH;
   return { crest: WAKE.crestX * k, half: WAKE.halfBase * (0.35 + 0.65 * k), height: amp * Math.min(1, k / 0.35) };
+}
+
+// Fills the four-sided shape a-b-c-d as two triangles: fillPoints cuts polygons into
+// triangles on the CPU every frame, which adds up over dozens of them.
+export function fillQuad(g, a, b, c, d) {
+  g.fillTriangle(a.x, a.y, b.x, b.y, c.x, c.y);
+  g.fillTriangle(a.x, a.y, c.x, c.y, d.x, d.y);
 }
 
 // Height of the water surface at any depth, for things floating on it.
@@ -33,14 +40,12 @@ export function drawWake(g, project, boatDepth, amp) {
   const boat = project(boatDepth, 0);
   const rider = project(RIDER_Z, 0);
   g.fillStyle(0xffffff, 0.16);
-  g.fillPoints(
-    [
-      { x: boat.x - 150 * boat.s, y: boat.y },
-      { x: boat.x + 150 * boat.s, y: boat.y },
-      { x: rider.x + 520 * rider.s, y: rider.y + 40 },
-      { x: rider.x - 520 * rider.s, y: rider.y + 40 },
-    ],
-    true,
+  fillQuad(
+    g,
+    { x: boat.x - 150 * boat.s, y: boat.y },
+    { x: boat.x + 150 * boat.s, y: boat.y },
+    { x: rider.x + 520 * rider.s, y: rider.y + 40 },
+    { x: rider.x - 520 * rider.s, y: rider.y + 40 },
   );
   if (amp <= 0) return;
 
@@ -60,41 +65,14 @@ export function drawWake(g, project, boatDepth, amp) {
     const a = rows[i];
     const b = rows[i + 1];
     g.fillStyle(WAKE_TOP, 0.85);
-    g.fillPoints([a.left, a.right, b.right, b.left], true);
+    fillQuad(g, a.left, a.right, b.right, b.left);
     g.fillStyle(WAKE_FACE, 0.85);
-    g.fillPoints([a.left, a.leftOuter, b.leftOuter, b.left], true);
-    g.fillPoints([a.right, a.rightOuter, b.rightOuter, b.right], true);
+    fillQuad(g, a.left, a.leftOuter, b.leftOuter, b.left);
+    fillQuad(g, a.right, a.rightOuter, b.rightOuter, b.right);
     g.lineStyle(2, 0xffffff, 0.7);
     g.lineBetween(a.left.x, a.left.y, b.left.x, b.left.y);
     g.lineBetween(a.right.x, a.right.y, b.right.x, b.right.y);
   }
-}
-
-// Returns the tow point the ropes attach to.
-export function drawBoat(g, p, curve) {
-  const { x, y, s } = p;
-  const bank = curve * 6 * s;
-
-  g.fillStyle(0xf4f4f4, 1);
-  g.fillPoints(
-    [
-      { x: x - 190 * s, y },
-      { x: x + 190 * s, y },
-      { x: x + 220 * s + bank, y: y - 120 * s },
-      { x: x - 220 * s + bank, y: y - 120 * s },
-    ],
-    true,
-  );
-  g.fillStyle(0xd23c3c, 1);
-  g.fillRect(x - 205 * s + bank * 0.6, y - 85 * s, 410 * s, 20 * s);
-  g.fillStyle(0x9fd3f0, 0.9);
-  g.fillRect(x - 120 * s + bank, y - 180 * s, 240 * s, 60 * s);
-  g.fillStyle(SKIN, 1);
-  g.fillRect(x - 25 * s + bank * 1.2, y - 230 * s, 50 * s, 50 * s);
-  g.fillStyle(0x333333, 1);
-  g.fillRect(x - 35 * s - curve * 4 * s, y - 140 * s, 70 * s, 150 * s);
-
-  return { x, y: y - 130 * s };
 }
 
 // A floating first-aid box: white with a red cross, gold rim for the big one.
@@ -133,18 +111,14 @@ export function drawRider(g, r, p, time) {
   const corners = (b) => [pt(b.x1, b.y1), pt(b.x2, b.y1), pt(b.x2, b.y2), pt(b.x1, b.y2)];
   const fill = (b, color, alpha = 1) => {
     g.fillStyle(color, alpha);
-    g.fillPoints(corners(b), true);
+    fillQuad(g, ...corners(b));
   };
   const outline = (b, color) => {
     g.lineStyle(1, color, 0.9);
     g.strokePoints(corners(b), true);
   };
 
-  if (r.airborne && !r.isOff) {
-    const fade = Math.max(0.25, 1 - r.alt / 500);
-    g.fillStyle(0x0b2d4a, 0.35 * fade);
-    g.fillEllipse(p.x + r.x * s, p.y - wakeHeight(r.x, r.wake) * s, RIDER.tubeWidth * s * fade, 22 * s * fade);
-  }
+  drawAirShadow(g, r, p);
 
   // The tube's top slopes down toward the side the rider leans, pressed by their weight.
   const tube = r.hurtBox('tube');
@@ -157,21 +131,11 @@ export function drawRider(g, r, p, time) {
   ];
   const lowAirFlash = r.lowAir && Math.sin(time * 10) > 0;
   g.fillStyle(r.air <= 0 ? 0x5a5a5a : lowAirFlash ? 0x9b2226 : 0x1f1f1f, 1);
-  g.fillPoints(tubeShape, true);
+  fillQuad(g, ...tubeShape);
   g.lineStyle(1, r.isOneHanded ? ONE_HANDED_OUTLINE : HITBOX_OUTLINE, 0.9);
   g.strokePoints(tubeShape, true);
 
-  if (r.onShore) {
-    const edge = Math.sign(r.x);
-    const ex = edge > 0 ? tube.x2 : tube.x1;
-    g.fillStyle(0xe8d29a, 0.9);
-    for (let i = 0; i < 5; i++) {
-      const jx = (Math.random() * 40 - 10) * edge;
-      const jy = Math.random() * 60;
-      const q = pt(ex + jx, jy);
-      g.fillRect(q.x - 3, q.y - 3, 6, 6);
-    }
-  }
+  drawShoreSpray(g, r, p, bob);
 
   if (r.isOff) {
     drawFall(g, r, p, time);
@@ -194,28 +158,59 @@ export function drawRider(g, r, p, time) {
   }
 }
 
+// The shadow under an airborne rider's tube, fainter the higher they are.
+export function drawAirShadow(g, r, p) {
+  if (!r.airborne || r.isOff) return;
+  const fade = Math.max(0.25, 1 - r.alt / 500);
+  g.fillStyle(0x0b2d4a, 0.35 * fade);
+  g.fillEllipse(p.x + r.x * p.s, p.y - wakeHeight(r.x, r.wake) * p.s, RIDER.tubeWidth * p.s * fade, 22 * p.s * fade);
+}
+
+// Sand flying off the shore side of a tube scraping along it.
+export function drawShoreSpray(g, r, p, bob = 0) {
+  if (!r.onShore) return;
+  const edge = Math.sign(r.x);
+  const ex = r.x + (edge * RIDER.tubeWidth) / 2;
+  g.fillStyle(0xe8d29a, 0.9);
+  for (let i = 0; i < 5; i++) {
+    const x = p.x + (ex + (Math.random() * 40 - 10) * edge) * p.s;
+    const y = p.y + bob - (r.alt + Math.random() * 60) * p.s;
+    g.fillRect(x - 3, y - 3, 6, 6);
+  }
+}
+
+// How a knocked-off rider flies: FALL.seconds through the air to FALL.distance world
+// units out (the way they were knocked), rising FALL.rise on the way.
+export const FALL = { seconds: 0.5, distance: 200, rise: 60 };
+
 // Rider tumbles off sideways, then gets left behind in the river as a splash.
 function drawFall(g, r, p, time) {
   const t = time - r.off.time;
   const s = p.s;
   const x0 = p.x + r.off.x * s;
-  const landX = x0 + r.off.dir * 200 * s;
 
-  if (t < 0.5) {
-    const k = t / 0.5;
-    const x = x0 + r.off.dir * 200 * s * k;
-    const y = p.y - (Math.sin(k * Math.PI) * 60 + 100 * (1 - k)) * s + k * 30;
+  if (t < FALL.seconds) {
+    const k = t / FALL.seconds;
+    const x = x0 + r.off.dir * FALL.distance * s * k;
+    const y = p.y - (Math.sin(k * Math.PI) * FALL.rise + 100 * (1 - k)) * s + k * 30;
     const w = RIDER.bodyWidth * s * (1 + k * 0.4);
     const h = ((RIDER.torsoTop + RIDER.headSize) * r.heightScale - RIDER.bodyBottom) * s * (1 - k * 0.5);
     g.fillStyle(r.color, 1 - k * 0.3);
     g.fillRect(x - w / 2, y - h, w, h);
     return;
   }
+  drawSplash(g, r, p, t - FALL.seconds);
+}
 
-  const k = Math.min((t - 0.5) / 1.2, 1);
+// Where a knocked-off rider landed, `t` seconds after: a ring spreading out as the river
+// carries it away.
+export function drawSplash(g, r, p, t, size = 1) {
+  const s = p.s;
+  const landX = p.x + (r.off.x + r.off.dir * FALL.distance) * s;
+  const k = Math.min(t / 1.2, 1);
   const y = p.y + 30 + k * 120;
   g.lineStyle(3, 0xffffff, 1 - k);
-  g.strokeEllipse(landX, y, (120 + 300 * k) * s, (40 + 100 * k) * s);
+  g.strokeEllipse(landX, y, (120 + 300 * k) * s * size, (40 + 100 * k) * s * size);
   g.fillStyle(r.skin, 1 - k);
-  g.fillCircle(landX, y, 9 * (1 + k));
+  g.fillCircle(landX, y, 9 * (1 + k) * size);
 }

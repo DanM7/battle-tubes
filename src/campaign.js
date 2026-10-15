@@ -2,6 +2,8 @@ import { OPPONENTS, DIFFICULTIES, LADDER_ORDER, GRIP_PER_POINT } from './config.
 import { CHARACTERS } from './characters.js';
 import { hasBeaten, hasPasswordUnlock } from './progress.js';
 import { newCustomRider, customName } from './customRiders.js';
+import { matchColor, artColors } from './riderColors.js';
+import { attackAnim, buildAnim, characterLook, ART_SCALE } from './riderArt.js';
 
 // A 1-player run up the ladder, in LADDER_ORDER.
 //   difficulty:   a DIFFICULTIES key
@@ -11,17 +13,21 @@ import { newCustomRider, customName } from './customRiders.js';
 //   rung:         index of the next opponent (order.length once the boss is beaten)
 //   lastResult:   null | 'won' | 'lost' for the match just played
 //   lastOpponent: OPPONENTS key of that opponent
+//   score:        points so far this run (see score.js); losing a match starts a new run
+//   runId:        tells this run's high score entry apart from the others
 export function newCampaign(difficulty = 'hard', player = { custom: newCustomRider(difficulty, 0) }) {
-  return { difficulty, player, order: [...LADDER_ORDER], rung: 0, lastResult: null, lastOpponent: null };
+  return { difficulty, player, order: [...LADDER_ORDER], rung: 0, lastResult: null, lastOpponent: null, score: 0, runId: Date.now() };
 }
 
-export function afterMatch(campaign, playerWon) {
+export function afterMatch(campaign, playerWon, score) {
   const opponent = campaign.order[campaign.rung];
   return {
     ...campaign,
     rung: playerWon ? campaign.rung + 1 : campaign.rung,
     lastResult: playerWon ? 'won' : 'lost',
     lastOpponent: opponent,
+    score: playerWon ? score : 0,
+    runId: playerWon ? campaign.runId : Date.now(),
   };
 }
 
@@ -31,6 +37,10 @@ export const character = (id) => CHARACTERS.find((c) => c.id === id);
 
 // The CHARACTERS entry for an OPPONENTS key.
 export const opponentCharacter = (key) => CHARACTERS.find((c) => c.nickname === key);
+
+// The texture key of `c`'s standing picture in `mode` (characters.js `sprites`), or null
+// if they don't have one.
+export const spriteKey = (c, mode) => (c?.sprites?.[mode] ? `rider-sprite-${mode}-${c.id}` : null);
 
 // Real names in 1999, nicknames in 2010.
 export const displayName = (c, difficulty) => (difficulty === 'easy' ? (c.name ?? c.id) : c.nickname);
@@ -87,10 +97,28 @@ export function rivalProfile(campaign, key) {
 export const customRiderOptions = (rider) => ({
   name: customName(rider),
   color: rider.color,
-  trunks: rider.trunks,
+  trunks: matchColor('trunks', rider.look.trunks),
+  skin: matchColor('skin', rider.look.skin),
   heightIn: rider.heightIn,
   toughness: gripToughness(rider.grip),
 });
+
+// How a match draws a rider: { anim } (their attack pictures, from riderArt.js) in
+// { colors } (riderColors.js), `artScale` times as big as their height makes them.
+export const characterArt = (c, difficulty, trunks = c.trunks) => ({
+  anim: attackAnim(c, difficulty),
+  colors: { ...artColors({ skin: c.skin, trunks }), ...characterLook(c, difficulty) },
+  artScale: ART_SCALE[difficulty],
+});
+
+export function playerArt(campaign) {
+  const { id, trunks, custom } = campaign.player;
+  if (!custom) return characterArt(character(id), campaign.difficulty, trunks);
+  const { build, hairStyle, gender } = custom.look;
+  return { anim: buildAnim(build, hairStyle, gender), colors: custom.look, artScale: ART_SCALE[campaign.difficulty] };
+}
+
+export const rivalArt = (campaign, key) => characterArt(opponentCharacter(key), campaign.difficulty);
 
 export function playerRiderOptions(campaign) {
   const { id, trunks, custom } = campaign.player;

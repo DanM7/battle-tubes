@@ -31,6 +31,19 @@
 //              instead of the drawn rider, and its top middle in their grid spot.
 //              tools/cutout.py makes these from the plain-background pictures in
 //              art/riders/.
+//   body:      (optional, default 'normal') build in their attack pictures, lightest
+//              first: 'skinny', 'normal', 'chubby', 'fat' or 'huge'
+//              (art/riders/bodies/; normal is Dan's)
+//   heads:     (optional) per mode, the head on their attack pictures: the name of a
+//              picture in art/riders/heads/ (their build's first frame with their
+//              head). A mode without one uses easy's; without any it's Dan's head.
+//              After changing body or heads, rerun tools/cutout.py.
+//   gender:    (optional, default 'boy') 'girl' draws their attack pictures as a girl
+//              (normal build only, no heads)
+//   looks:     (optional) per mode, their attack pictures made over like a custom
+//              rider's: picture colors (skin, hair; see riderColors.js) and, without
+//              heads, a hairStyle from HAIR_STYLES in riderArt.js for their gender. A
+//              head's hair stays as drawn. A mode without one uses easy's.
 //   stats:     per mode ('easy' is 1999, 'hard' is 2010):
 //                heightIn: height in inches. Taller riders reach farther and have
 //                          bigger hitboxes.
@@ -56,6 +69,8 @@ export const CHARACTERS = [
     skin: 0xf7b481,
     style: 'Rookie. Flails at anything, even from too far away, and barely defends.',
     sprites: { easy: 'assets/sprites/riders/player-billy.png' },
+    body: 'skinny',
+    heads: { easy: 'billy', hard: 'billy-2010' },
     stats: {
       easy: { heightIn: 66, grip: 1 },
       hard: { heightIn: 72, grip: 2 },
@@ -71,6 +86,7 @@ export const CHARACTERS = [
     skin: 0xf4b07b,
     style: 'Aggressive spammer. Gets right up close and never stops swinging.',
     sprites: { easy: 'assets/sprites/riders/player-rob.png' },
+    heads: { easy: 'rob', hard: 'rob-2010' },
     stats: {
       easy: { heightIn: 60, grip: 3 },
       hard: { heightIn: 68, grip: 3 },
@@ -89,6 +105,7 @@ export const CHARACTERS = [
     leanPower: 1.3,
     style: 'Rammer. Big, heavy, and always shoving you toward the shore.',
     sprites: { easy: 'assets/sprites/riders/player-mike.png' },
+    heads: { easy: 'mike', hard: 'mike-2010' },
     stats: {
       easy: { heightIn: 68, grip: 3 },
       hard: { heightIn: 74, grip: 3 },
@@ -104,6 +121,7 @@ export const CHARACTERS = [
     skin: 0xf7caa8,
     style: 'Passive strafer. Drifts in and out of kick range, dodges, backs off when hurt.',
     sprites: { easy: 'assets/sprites/riders/player-rj.png' },
+    heads: { easy: 'rj' },
     stats: {
       easy: { heightIn: 62, grip: 3 },
       hard: { heightIn: 69, grip: 3 },
@@ -135,6 +153,8 @@ export const CHARACTERS = [
     leanPower: 1.2,
     style: 'The final boss. Slippery, does everything well, grabs every health item.',
     sprites: { easy: 'assets/sprites/riders/player-adam.png' },
+    body: 'chubby',
+    heads: { easy: 'adam' },
     stats: {
       easy: { heightIn: 58, grip: 5 },
       hard: { heightIn: 67, grip: 5 },
@@ -149,6 +169,7 @@ export const CHARACTERS = [
     skin: 0xf7c39d,
     style: 'Secret bonus rider. Good reach and a strong grip.',
     sprites: { easy: 'assets/sprites/riders/player-jeff.png', hard: 'assets/sprites/riders/player-ffej.png' },
+    heads: { easy: 'jeff', hard: 'ffej' },
     stats: {
       easy: { heightIn: 70, grip: 5 },
       hard: { heightIn: 70, grip: 5 },
@@ -163,10 +184,66 @@ export const CHARACTERS = [
     skin: 0xfcd34d,
     secret: true,
     style: 'Secret password rider. Short, yellow, and tells everyone to eat his shorts.',
+    sprites: { easy: 'assets/sprites/riders/player-bart.png', hard: 'assets/sprites/riders/player-bart.png' },
+    looks: { easy: { skin: 0xffd90f, hair: 0xffd90f, hairStyle: 'spiky' } },
     stats: {
       easy: { heightIn: 54, grip: 3 },
       hard: { heightIn: 58, grip: 3 },
     },
     unlock: { password: 'BART' },
+  },
+  {
+    id: 'Stelios',
+    nickname: 'ΚΑΝΕΛΑ',
+    color: 0x1d4ed8,
+    trunks: 0x1f9e9e,
+    skin: 0xffddb2,
+    secret: true,
+    style: 'Secret password rider. Small and wiry, and always looking for an opening.',
+    sprites: { easy: 'assets/sprites/riders/player-stelios.png', hard: 'assets/sprites/riders/player-stelios.png' },
+    body: 'skinny',
+    looks: { easy: { skin: 0xe9a37f, hair: 0x2b2421, hairStyle: 'crop' } },
+    stats: {
+      easy: { heightIn: 59, grip: 3 },
+      hard: { heightIn: 67, grip: 3 },
+    },
+    unlock: { password: 'STEL' },
+  },
+  {
+    id: 'Nick',
+    nickname: 'Nicky Flash',
+    color: 0xf5f5f5,
+    trunks: 0xd62828,
+    skin: 0xf0b15b,
+    secret: true,
+    style: 'Secret password rider. Fast hands: blink and you miss the punch.',
+    sprites: { easy: 'assets/sprites/riders/player-nick.png', hard: 'assets/sprites/riders/player-nick.png' },
+    heads: { easy: 'nick' },
+    looks: { easy: { skin: 0xc7794c } },
+    stats: {
+      easy: { heightIn: 66, grip: 3 },
+      hard: { heightIn: 72, grip: 3 },
+    },
+    unlock: { password: 'NICK' },
+  },
+  {
+    id: 'Kara',
+    nickname: 'Arak',
+    color: 0xff7eb6,
+    trunks: 0xfb4b36,
+    skin: 0xffddb2,
+    secret: true,
+    gender: 'girl',
+    style: 'Secret password rider. The smallest on the river, and quick to make you regret underestimating her.',
+    sprites: { easy: 'assets/sprites/riders/player-kara.png', hard: 'assets/sprites/riders/player-arak.png' },
+    looks: {
+      easy: { skin: 0xe9a37f, hair: 0x7f4a32, hairStyle: 'ponytail' },
+      hard: { skin: 0xe9a37f, hair: 0x7f4a32, hairStyle: 'ponytail-no-bangs' },
+    },
+    stats: {
+      easy: { heightIn: 53, grip: 3 },
+      hard: { heightIn: 59, grip: 3 },
+    },
+    unlock: { password: 'LOVE' },
   },
 ];

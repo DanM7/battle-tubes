@@ -108,6 +108,18 @@ const GLYPHS = {
   '↑': ['..#..', '.###.', '#####', '..#..', '..#..', '..#..', '..#..'],
   '↓': ['..#..', '..#..', '..#..', '..#..', '#####', '.###.', '..#..'],
   '❚': ['##', '##', '##', '##', '##', '##', '##'],
+
+  // Greek capitals that don't look like Latin ones (see ALIASES for those).
+  Γ: ['######', '##....', '##....', '##....', '##....', '##....', '##....'],
+  Δ: ['...##...', '..####..', '.##..##.', '.##..##.', '##....##', '##....##', '########'],
+  Θ: ['.####.', '##..##', '##..##', '######', '##..##', '##..##', '.####.'],
+  Λ: ['...##...', '..####..', '.##..##.', '.##..##.', '##....##', '##....##', '##....##'],
+  Ξ: ['######', '......', '......', '.####.', '......', '......', '######'],
+  Π: ['######', '##..##', '##..##', '##..##', '##..##', '##..##', '##..##'],
+  Σ: ['######', '##....', '.##...', '..##..', '.##...', '##....', '######'],
+  Φ: ['...#...', '.#####.', '##.#.##', '##.#.##', '.#####.', '...#...', '...#...'],
+  Ψ: ['##.#.##', '##.#.##', '##.#.##', '.#####.', '...#...', '...#...', '...#...'],
+  Ω: ['.####.', '##..##', '##..##', '##..##', '.#..#.', '.#..#.', '##..##'],
 };
 
 // Capitals only, 5 pixels tall, for small labels. Lowercase is drawn as capitals.
@@ -162,6 +174,16 @@ const SMALL_GLYPHS = {
   '/': ['..#', '..#', '.#.', '#..', '#..'],
   '(': ['.#', '#.', '#.', '#.', '.#'],
   ')': ['#.', '.#', '.#', '.#', '#.'],
+  Γ: ['####', '#...', '#...', '#...', '#...'],
+  Δ: ['..#..', '.#.#.', '.#.#.', '#...#', '#####'],
+  Θ: ['.##.', '#..#', '####', '#..#', '.##.'],
+  Λ: ['..#..', '.#.#.', '.#.#.', '#...#', '#...#'],
+  Ξ: ['####', '....', '.##.', '....', '####'],
+  Π: ['####', '#..#', '#..#', '#..#', '#..#'],
+  Σ: ['####', '#...', '.#..', '#...', '####'],
+  Φ: ['.#.', '###', '#.#', '###', '.#.'],
+  Ψ: ['#.#.#', '#.#.#', '.###.', '..#..', '..#..'],
+  Ω: ['.##.', '#..#', '#..#', '.##.', '#..#'],
 };
 
 // normal: the main outlined font. plain: the same letters without the outline, for dark
@@ -182,8 +204,19 @@ const FONT_BY_KEY = Object.fromEntries(
   Object.values(FONTS).flatMap((f) => ['tight', 'wide'].map((spacing) => [fontKey(f, spacing), f])),
 );
 
-// Characters the fonts draw as a look-alike.
-const ALIASES = { '−': '-', '–': '-', '—': '-', '’': "'", '‘': "'", '“': '"', '”': '"', '…': '...', '×': 'x' };
+// Characters the fonts draw as a look-alike, including Greek capitals shaped like Latin ones.
+const ALIASES = {
+  '−': '-',
+  '–': '-',
+  '—': '-',
+  '’': "'",
+  '‘': "'",
+  '“': '"',
+  '”': '"',
+  '…': '...',
+  '×': 'x',
+  ...Object.fromEntries([...'ΑΒΕΖΗΙΚΜΝΟΡΤΥΧ'].map((greek, i) => [greek, 'ABEZHIKMNOPTYX'[i]])),
+};
 
 const toColor = (c) => (typeof c === 'string' ? parseInt(c.replace('#', ''), 16) : c);
 
@@ -338,4 +371,16 @@ export function addText(
   text.setLetterSpacing(spacing === 'wide' ? LETTER_GAP / scale : 1 - f.outline * 2).setText(str).setColor(color);
   if (wrap) text.setWrapWidth(wrap);
   return scene.add.existing(text);
+}
+
+// 'normal' if every one of `labels` is at most `maxW` wide at `scale`, else 'small', so a
+// row of labels (tabs) all share a font.
+export function fontToFit(scene, labels, maxW, scale = 2) {
+  const fits = labels.every((label) => {
+    const text = addText(scene, 0, 0, label, { scale });
+    const { width } = text;
+    text.destroy();
+    return width <= maxW;
+  });
+  return fits ? 'normal' : 'small';
 }

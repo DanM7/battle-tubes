@@ -1,6 +1,7 @@
 import { RIDER } from './config.js';
 import { TEXELS_PER_UNIT, RUBBER } from './tubeArt.js';
 import { riderTexture } from './riderColors.js';
+import { fillQuad } from './draw.js';
 
 // Rider animation strips from tools/cutout.py, seated in the drawn tubes from tubeArt.js.
 
@@ -17,10 +18,36 @@ export const ATTACK_ANIM = {
   midKick: 4,
   lowKick: 5,
 };
-// The same frames with another rider's head on Dan's body (tools/cutout.py heads()).
-export function attackAnim(id) {
-  const name = id.toLowerCase();
-  return name === 'dan' ? ATTACK_ANIM : { ...ATTACK_ANIM, key: `${name}-attack`, url: `assets/sprites/riders/anim/${name}-attack` };
+export const BUILDS = ['skinny', 'normal', 'chubby', 'fat', 'huge'];
+// Per mode, how much bigger the pictures are drawn than the rider's height makes them:
+// 2010's riders are grown men, and at their height alone they look like big kids.
+export const ART_SCALE = { easy: 1, hard: 1.1 };
+export const GENDERS = ['boy', 'girl'];
+// Per gender, the hair styles, the first the default. A boy's are Dan's head with other
+// hair (his own first), always his face: art/riders/hair/<style>.jpg, which
+// tools/cutout.py puts on every build. A girl's are Dan's frames redrawn as a girl with
+// that hair: art/riders/girls/<style>/.
+export const HAIR_STYLES = { boy: ['classic', 'spiky', 'buzz', 'crop', 'mohawk', 'long'], girl: ['ponytail', 'ponytail-no-bangs'] };
+export const hairStyleLabel = (style) => style.replaceAll('-', ' ').toUpperCase();
+// The builds each gender comes in (girls are only drawn in the normal one so far).
+export const genderBuilds = (gender) => (gender === 'girl' ? ['normal'] : BUILDS);
+const attackFrames = (name) => ({ ...ATTACK_ANIM, key: `${name}-attack`, url: `assets/sprites/riders/anim/${name}-attack` });
+// The same frames on another build (characters.js `body`), with Dan's head in a hair
+// style, or a girl's frames in hers.
+export function buildAnim(build, hairStyle, gender = 'boy') {
+  if (gender === 'girl') return attackFrames(`girl-${HAIR_STYLES.girl.includes(hairStyle) ? hairStyle : HAIR_STYLES.girl[0]}`);
+  const style = HAIR_STYLES.boy.indexOf(hairStyle) > 0 ? [hairStyle] : [];
+  const name = ['dan', ...style, ...(build === 'normal' ? [] : [build])].join('-');
+  return name === 'dan' ? ATTACK_ANIM : attackFrames(name);
+}
+// A character's characters.js `looks` entry for `mode` (easy's if that mode has none), if any.
+export const characterLook = (c, mode = 'easy') => c.looks?.[mode] ?? c.looks?.easy;
+// A character's attack frames in `mode`: their build with their head for that mode
+// (characters.js `body` and `heads`; tools/cutout.py makes them), or Dan's head (or a
+// girl's frames, by `gender`) in their look's hair style.
+export function attackAnim(c, mode = 'easy') {
+  const head = c.heads?.[mode] ?? c.heads?.easy;
+  return head ? attackFrames(head) : buildAnim(c.body ?? 'normal', characterLook(c, mode)?.hairStyle, c.gender);
 }
 const STANDING_UNITS = RIDER.torsoTop + RIDER.headSize; // a base-height rider standing, in world units
 export const SPRITE_PX_PER_UNIT = 560 / STANDING_UNITS; // a standing rider picture is ~560px tall
@@ -35,6 +62,17 @@ export function preloadRiderAnim(scene, anim = RIDER_ANIM) {
   scene.load.image(`${anim.key}-strip`, `${anim.url}.png`);
 }
 
+export const isRiderAnimLoaded = (scene, anim) => scene.cache.json.exists(`${anim.key}-meta`) && scene.textures.exists(`${anim.key}-strip`);
+
+// After preload(): loads `anim`, then calls `done` (right away if it's already loaded).
+// Not called if the scene stops first, or if it doesn't load.
+export function loadRiderAnim(scene, anim, done) {
+  if (isRiderAnimLoaded(scene, anim)) return done();
+  scene.load.once('complete', () => isRiderAnimLoaded(scene, anim) && done());
+  preloadRiderAnim(scene, anim);
+  scene.load.start();
+}
+
 // The strip as a spritesheet (made once), and its frame size, anchor and handles.
 function riderAnim(scene, anim) {
   const meta = scene.cache.json.get(`${anim.key}-meta`);
@@ -47,6 +85,30 @@ function riderAnim(scene, anim) {
   return meta;
 }
 
+// Where the head is in `anim`'s first (holding on) frame, in frame pixels: the top of
+// the picture, and how far left and right it reaches in the HEAD_ROWS rows from there.
+const HEAD_ROWS = 60;
+function headBounds(scene, anim, { frameWidth: w, frameHeight: h }) {
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(scene.textures.get(`${anim.key}-strip`).getSourceImage(), 0, 0);
+  const { data } = ctx.getImageData(0, 0, w, h);
+  let top = -1;
+  let left = w;
+  let right = 0;
+  for (let y = 0; y < h && (top < 0 || y < top + HEAD_ROWS); y++) {
+    for (let x = 0; x < w; x++) {
+      if (data[(y * w + x) * 4 + 3] < 128) continue;
+      if (top < 0) top = y;
+      left = Math.min(left, x);
+      right = Math.max(right, x);
+    }
+  }
+  return { top: Math.max(0, top), left, right };
+}
+
 // One rider in their tube: the tube's back half, the straps to the handle they hold, the
 // rider, and the tube's front half, in a container whose origin is the tube's bottom center.
 export class TubeRider {
@@ -54,10 +116,11 @@ export class TubeRider {
     this.scene = scene;
     this.anim = anim;
     this.meta = riderAnim(scene, anim);
+    this.meta.head ??= headBounds(scene, anim, this.meta);
     const { anchor, frameWidth, frameHeight } = this.meta;
     this.back = scene.add.image(0, 0, '__DEFAULT');
     this.straps = scene.add.graphics();
-    this.rider = scene.add.image(0, 0, anim.key, 0).setOrigin(anchor.x / frameWidth, anchor.y / frameHeight);
+    this.rider = scene.add.image(0, 0, riderTexture(scene, anim), 0).setOrigin(anchor.x / frameWidth, anchor.y / frameHeight);
     this.front = scene.add.image(0, 0, '__DEFAULT');
     this.container = scene.add.container(0, 0, [this.back, this.straps, this.rider, this.front]);
   }
@@ -133,23 +196,41 @@ export class TubeRider {
     const stretch = Math.hypot(x2 - x1, y2 - y1) / (y2 - y1);
     const band = (w, color) => {
       const h = (w * stretch) / 2;
-      this.straps.fillStyle(color).fillPoints(
-        [
-          { x: x1 - h, y: y1 },
-          { x: x1 + h, y: y1 },
-          { x: x2 + h, y: y2 },
-          { x: x2 - h, y: y2 },
-        ],
-        true,
-      );
+      fillQuad(this.straps.fillStyle(color), { x: x1 - h, y: y1 }, { x: x1 + h, y: y1 }, { x: x2 + h, y: y2 }, { x: x2 - h, y: y2 });
     };
     band(STRAP.width * texel, RUBBER.outline);
     band((STRAP.width - 2) * texel, RUBBER.dark1);
   }
 
-  // Skin and trunks colors, as riderTexture() in riderColors.js takes them.
+  // Skin, trunks and hair colors, as riderTexture() in riderColors.js takes them.
   setColors(colors) {
     this.rider.setTexture(riderTexture(this.scene, this.anim, colors), this.rider.frame.name);
+    return this;
+  }
+
+  // The top of the rider's head and its left and right edges on screen, where place()
+  // last put them (as they hold on).
+  headBox() {
+    const { top, left, right } = this.meta.head;
+    const m = this.rider.getWorldTransformMatrix();
+    const at = (x) => m.transformPoint(x - this.rider.displayOriginX, top - this.rider.displayOriginY);
+    const [a, b] = [at(left), at(right)];
+    return { left: Math.min(a.x, b.x), right: Math.max(a.x, b.x), top: Math.min(a.y, b.y) };
+  }
+
+  // The tube filled with `color` (a warning flash), or as drawn (null).
+  flashTube(color) {
+    for (const image of [this.back, this.front]) {
+      if (color === null) image.clearTint();
+      else image.setTintFill(color);
+    }
+    return this;
+  }
+
+  // The rider all white for a moment, when hit.
+  setFlash(on) {
+    if (on) this.rider.setTintFill(0xffffff);
+    else this.rider.clearTint();
     return this;
   }
 

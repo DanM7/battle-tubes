@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { WIDTH, HEIGHT, ATTACKS } from '../config.js';
 import { tubeTextures, TEXELS_PER_UNIT, TUBE_WIDTH } from '../tubeArt.js';
 import { TubeRider, preloadRiderAnim, ATTACK_ANIM } from '../riderArt.js';
+import { riderTexture } from '../riderColors.js';
 import { KEYMAPS } from '../input.js';
 import { addText } from '../pixelFont.js';
 import { addBackButton } from './ui.js';
@@ -100,7 +101,7 @@ export class AttackLabScene extends Phaser.Scene {
     this.slots = [0, 1, 2].map((i) => {
       const x = PANEL.x + (i - 1) * PANEL.spacing;
       const mark = this.add.rectangle(x, PANEL.framesY + 4, PANEL.spacing - 8, height + 8, 0xffdd55, 0.25).setOrigin(0.5, 1);
-      const image = this.add.image(x, PANEL.framesY, ATTACK_ANIM.key, 0).setScale(PANEL.frameScale).setOrigin(0.5, 1);
+      const image = this.add.image(x, PANEL.framesY, riderTexture(this, ATTACK_ANIM), 0).setScale(PANEL.frameScale).setOrigin(0.5, 1);
       const label = addText(this, x, PANEL.framesY + 8, '', { scale: 2 }).setOrigin(0.5, 0);
       return { mark, image, label, frame: 0 };
     });

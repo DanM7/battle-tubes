@@ -1,32 +1,39 @@
 import { SKIN } from './config.js';
 import { CHARACTERS } from './characters.js';
 
-// A player's skin and swim trunks colors on the rider pictures. tools/cutout.py redraws
-// every frame's skin and trunks in a few fixed shades of Dan's (the animation JSON's
-// palette, darkest first); this swaps those exact colors for shades made from a player's
-// chosen colors, shaded like Dan's.
+// A player's skin, swim trunks and hair colors on the rider pictures. tools/cutout.py
+// redraws every frame's skin, trunks and hair in a few fixed shades of Dan's (the
+// animation JSON's palette, darkest first); this swaps those exact colors for shades made
+// from a player's chosen colors, shaded like Dan's.
 
 // Choices for create-a-player. Each is the middle shade the others are made from: the
-// third of four for skin, the second of three for trunks.
+// third of four for skin and hair, the second of three for trunks.
 export const SKIN_TONES = [0xf2bf9f, 0xe9a37f, 0xd88369, 0xc7794c, 0xb0814f, 0x95583a, 0x70412b, 0x4b2b1f];
 export const TRUNKS_COLORS = [0xc45e29, 0xd62828, 0x1d4ed8, 0xfcd34d, 0x1f2937, 0x2f9e44, 0x7b3fc4, 0xd9468f, 0x1f9e9e, 0xd8dce4];
 // Skin for special riders (Bart's yellow): not offered from the start; to be unlocked.
 export const UNLOCKABLE_SKIN_TONES = TRUNKS_COLORS;
-export const DAN_COLORS = { skin: 0xd88369, trunks: 0xc45e29, skinShading: 1, trunksShading: 1 };
-export const BASE_SHADE = { skin: 2, trunks: 1 };
+// Hair is only Dan's own (and custom riders'); other riders' heads keep theirs as drawn.
+export const HAIR_COLORS = [0xe0c27a, 0xc89a55, 0xa8441f, 0x9f5c3c, 0x7f4a32, 0x5a3825, 0x2b2421, 0x9a9a9a];
+// Dan as he looks in the game: his pictures as drawn, but hair a shade darker.
+export const DAN_COLORS = { skin: 0xd88369, trunks: 0xc45e29, hair: 0x7f4a32, skinShading: 1, trunksShading: 1, hairShading: 1 };
+export const PARTS = ['skin', 'trunks', 'hair'];
+export const BASE_SHADE = { skin: 2, trunks: 1, hair: 2 };
 
-// `colors` is { skin, trunks } (0xRRGGBB, their middle shades) and how strongly each is
-// shaded, { skinShading, trunksShading } (1 is like Dan; more is more contrast). Returns the
-// texture key of `anim` (from riderArt.js) in those colors, made the first time it's asked for.
+// `colors` is { skin, trunks, hair } (0xRRGGBB, their middle shades) and how strongly each
+// is shaded, { skinShading, trunksShading, hairShading } (1 is like Dan; more is more
+// contrast). Returns the texture key of `anim` (from riderArt.js) in those colors, made
+// the first time it's asked for.
 export function riderTexture(scene, anim, colors = DAN_COLORS) {
   const c = { ...DAN_COLORS, ...colors };
   const meta = scene.cache.json.get(`${anim.key}-meta`);
-  if (!meta.palette || sameColors(c, DAN_COLORS)) return anim.key;
-  const key = `${anim.key}:${c.skin.toString(16)}:${c.trunks.toString(16)}:${c.skinShading}:${c.trunksShading}`;
+  const parts = PARTS.filter((part) => meta.palette?.[part]);
+  const asDrawn = (part) => c[part] === middleShade(meta, part) && c[`${part}Shading`] === 1;
+  if (parts.every(asDrawn)) return anim.key;
+  const key = [anim.key, ...parts.map((part) => `${c[part].toString(16)}:${c[`${part}Shading`]}`)].join(':');
   if (scene.textures.exists(key)) return key;
 
   const swaps = new Map();
-  for (const part of ['skin', 'trunks']) {
+  for (const part of parts) {
     const from = meta.palette[part].map((hex) => parseInt(hex.slice(1), 16));
     shades(from, BASE_SHADE[part], c[part], c[`${part}Shading`]).forEach((to, i) => swaps.set(from[i], to));
   }
@@ -52,19 +59,30 @@ export function riderTexture(scene, anim, colors = DAN_COLORS) {
   return key;
 }
 
-const sameColors = (a, b) => ['skin', 'trunks', 'skinShading', 'trunksShading'].every((k) => a[k] === b[k]);
+const middleShade = (meta, part) => parseInt(meta.palette[part][BASE_SHADE[part]].slice(1), 16);
 
 // A character's colors from characters.js (flat, as a match draws them) for the pictures:
 // as far from Dan's middle shades as they are from Dan's own flat colors there, in hue,
 // saturation and lightness.
 export function artColors({ skin = SKIN, trunks }) {
-  const dan = CHARACTERS.find((c) => c.id === 'Dan');
+  const dan = danCharacter();
   return {
     ...DAN_COLORS,
     skin: relative(skin, dan.skin, DAN_COLORS.skin),
     trunks: relative(trunks, dan.trunks, DAN_COLORS.trunks),
   };
 }
+
+// The other way: a picture color for `part` ('skin' or 'trunks') as a match draws it.
+export function matchColor(part, color) {
+  return relative(color, DAN_COLORS[part], danCharacter()[part]);
+}
+
+const danCharacter = () => CHARACTERS.find((c) => c.id === 'Dan');
+
+// 0xRRGGBB as '#rrggbb', and back.
+export const toHex = (color) => `#${color.toString(16).padStart(6, '0')}`;
+export const fromHex = (hex) => parseInt(hex.slice(1), 16);
 
 // `color` moved the way `from` moves to `to`.
 function relative(color, from, to) {

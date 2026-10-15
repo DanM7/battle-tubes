@@ -1,5 +1,6 @@
 import { WIDTH, HEIGHT } from '../config.js';
 import { addText } from '../pixelFont.js';
+import { toHex, fromHex } from '../riderColors.js';
 
 const BACKGROUND = { key: 'menu-background', url: 'assets/backgrounds/q-house.jpg' };
 
@@ -14,9 +15,9 @@ const MENU_BUTTON = { w: 300, h: 58, textScale: 3 };
 const MENU_COLUMNS = [185, WIDTH - 185];
 const MENU_ROW_Y = 300;
 const MENU_ROW_STEP = 72;
-export const menuGridCell = (i) => ({
+export const menuGridCell = (i, { rowY = MENU_ROW_Y, rowStep = MENU_ROW_STEP } = {}) => ({
   x: MENU_COLUMNS[i % MENU_COLUMNS.length],
-  y: MENU_ROW_Y + Math.floor(i / MENU_COLUMNS.length) * MENU_ROW_STEP,
+  y: rowY + Math.floor(i / MENU_COLUMNS.length) * rowStep,
 });
 
 // A big see-through menu button. `dimmed` is for ones that aren't available yet.
@@ -59,6 +60,43 @@ export function addCloseButton(scene) {
   button.on('pointerout', () => button.setFillStyle(0x1d4e89));
   button.on('pointerup', () => scene.scene.start('Menu'));
   scene.input.keyboard.once('keydown-ESC', () => scene.scene.start('Menu'));
+}
+
+// A CUSTOM button, w by h centered on (x, y), that opens the browser's color picker: an
+// invisible real color input lies over it, so phones get theirs too. The chip on the
+// button follows the picker; `pick(color)` (0xRRGGBB) is called when it closes, and
+// `open()` when it opens. Returns the objects it's made of, and `show(color, chosen)` to
+// show the color the rider has, outlined when it's not one of the swatches.
+export function addColorPicker(scene, x, y, w, h, { pick, open = () => {} }) {
+  const rect = scene.add.rectangle(x, y, w, h, 0x1d4e89).setStrokeStyle(2, 0xffffff);
+  const chipSize = h - 12;
+  const chip = scene.add.rectangle(x - w / 2 + 6 + chipSize / 2, y, chipSize, chipSize, 0xffffff).setStrokeStyle(1, 0x0d2a4a);
+  const label = addText(scene, x + chipSize / 2, y, 'CUSTOM', { scale: 2 }).setOrigin(0.5);
+
+  // Phaser sets the opacity of the element it places, so the input goes inside another.
+  const wrapper = document.createElement('div');
+  const node = document.createElement('input');
+  node.type = 'color';
+  Object.assign(node.style, { display: 'block', width: `${w}px`, height: `${h}px`, opacity: '0', cursor: 'pointer', border: 'none', padding: '0', margin: '0' });
+  wrapper.append(node);
+  node.addEventListener('click', open);
+  node.addEventListener('input', () => chip.setFillStyle(fromHex(node.value)));
+  node.addEventListener('change', () => {
+    node.blur(); // or Enter would open it again, as well as doing what Enter does
+    pick(fromHex(node.value));
+  });
+  node.addEventListener('mouseenter', () => rect.setFillStyle(0x2a6bb8));
+  node.addEventListener('mouseleave', () => rect.setFillStyle(0x1d4e89));
+  const dom = scene.add.dom(x, y, wrapper);
+
+  return {
+    objects: [rect, chip, label, dom],
+    show(color, chosen) {
+      node.value = toHex(color);
+      chip.setFillStyle(color);
+      rect.setStrokeStyle(chosen ? 3 : 2, chosen ? 0xffdd55 : 0xffffff);
+    },
+  };
 }
 
 // A "◀ BACK" button in the top-left corner that starts scene `to` with `data` (Esc does too).

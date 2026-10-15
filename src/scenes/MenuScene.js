@@ -9,6 +9,9 @@ let menuShown = false;
 // Developer tools (the labs) only show up when the game is served from this machine.
 const IS_LOCAL = ['localhost', '127.0.0.1'].includes(location.hostname);
 const LAB_BUTTON = { w: 100, h: 44, textScale: 2 };
+// Smaller than other menus' buttons, to fit three rows between the title and the LAB button.
+const BUTTON = { w: 280, h: 48, textScale: 3 };
+const GRID = { rowY: 284, rowStep: 60 };
 
 export class MenuScene extends Phaser.Scene {
   constructor() {
@@ -49,10 +52,12 @@ export class MenuScene extends Phaser.Scene {
       ['CONTROLS', () => this.scene.start('Controls')],
       ['2 PLAYERS', () => this.comingSoon(), { dimmed: true }],
       ['PASSWORD', () => this.scene.start('Password')],
+      ['HIGH SCORES', () => this.scene.start('HighScores')],
+      ['ABOUT', () => this.scene.start('About')],
     ];
     buttons.forEach(([label, onClick, options], i) => {
-      const { x, y } = menuGridCell(i);
-      addMenuButton(this, x, y, label, onClick, options);
+      const { x, y } = menuGridCell(i, GRID);
+      addMenuButton(this, x, y, label, onClick, { ...BUTTON, ...options });
     });
     if (IS_LOCAL) {
       const x = 16 + LAB_BUTTON.w / 2;
