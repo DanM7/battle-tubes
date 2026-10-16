@@ -5,7 +5,7 @@ import { SITE, fillPlaceholders } from '../copy.js';
 import { addText } from '../pixelFont.js';
 import { preloadBackground, addBackground, addMenuButton, menuGridCell, addTubeGradientTitle } from './ui.js';
 import { labFromQuery, setLabQuery, startLab } from './LabsScene.js';
-import { ensureMenuMusic } from '../audio.js';
+import { ensureMenuMusic, unlockAudio } from '../audio.js';
 
 let menuShown = false;
 // Developer tools (the labs) only show up when the game is served from this machine.
@@ -28,11 +28,7 @@ export class MenuScene extends Phaser.Scene {
   }
 
   create() {
-    // Browsers keep AudioContext suspended until a gesture; starting the sequencer earlier
-    // queues notes at a frozen currentTime and they all dump at once (sounds like 2+ tracks).
-    const unlock = () => ensureMenuMusic();
-    this.input.once('pointerdown', unlock);
-    this.input.keyboard?.once('keydown', unlock);
+    this.leaving = false;
     // On page load, ?mode=1p (first ladder match) or ?mode=2p skips the menu (handy while
     // developing), ?lab= opens the Labs screen, and ?lab=<a lab's button text> (?lab=create,
     // say) that lab.
@@ -108,6 +104,11 @@ export class MenuScene extends Phaser.Scene {
   }
 
   startOnePlayer() {
+    if (this.leaving) return;
+    this.leaving = true;
+    // Unlock in this tap stack before fullscreen (mobile often re-suspends after FS).
+    unlockAudio();
+    ensureMenuMusic();
     if (IS_MOBILE && !this.scale.isFullscreen) {
       this.scale.startFullscreen();
       screen.orientation?.lock?.('landscape').catch(() => {});

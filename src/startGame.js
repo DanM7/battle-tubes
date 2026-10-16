@@ -21,9 +21,11 @@ import { MusicLabScene } from './scenes/MusicLabScene.js';
 import { SfxLabScene } from './scenes/SfxLabScene.js';
 import { PasswordLabScene } from './scenes/PasswordLabScene.js';
 import { CharImportLabScene } from './scenes/CharImportLabScene.js';
+import { installAudioUnlockListeners } from './audio.js';
 
 // Imported only after loadGameData() so module-level constants (VIEW, RIDER, …) see filled data.
 export function startGame() {
+  installAudioUnlockListeners();
   return new Phaser.Game({
     type: Phaser.AUTO,
     parent: 'game',

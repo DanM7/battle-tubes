@@ -2,6 +2,7 @@ import { WIDTH, HEIGHT } from '../config.js';
 import { TUBE_COLORS } from '../tubeArt.js';
 import { addText } from '../pixelFont.js';
 import { toHex, fromHex } from '../riderColors.js';
+import { unlockAudio, ensureMenuMusic } from '../audio.js';
 
 const TITLE_BANDS = 8; // stepped blue→green bands (pixel-art gradient, not smooth)
 
@@ -68,7 +69,13 @@ export function addMenuButton(scene, x, y, label, onClick, { dimmed = false, fon
   addText(scene, x, y, label, { scale: textScale, color: dimmed ? '#aab8c8' : '#ffffff', ...(font ? { font } : {}) }).setOrigin(0.5);
   rect.on('pointerover', () => rect.setFillStyle(hover, BUTTON_HOVER_ALPHA));
   rect.on('pointerout', () => rect.setFillStyle(fill, BUTTON_ALPHA));
-  rect.on('pointerup', onClick);
+  // Unlock audio on press (gesture); ignore a second tap while this scene is leaving.
+  rect.on('pointerdown', () => unlockAudio());
+  rect.on('pointerup', () => {
+    if (dimmed || scene.leaving) return;
+    unlockAudio();
+    onClick();
+  });
   return rect;
 }
 
@@ -95,8 +102,16 @@ export function addCloseButton(scene) {
   addText(scene, x, y, 'X', { scale: 3 }).setOrigin(0.5);
   button.on('pointerover', () => button.setFillStyle(0x2a6bb8));
   button.on('pointerout', () => button.setFillStyle(0x1d4e89));
-  button.on('pointerup', () => scene.scene.start('Menu'));
-  scene.input.keyboard.once('keydown-ESC', () => scene.scene.start('Menu'));
+  const go = () => {
+    if (scene.leaving) return;
+    scene.leaving = true;
+    unlockAudio();
+    ensureMenuMusic();
+    scene.scene.start('Menu');
+  };
+  button.on('pointerdown', () => unlockAudio());
+  button.on('pointerup', go);
+  scene.input.keyboard.once('keydown-ESC', go);
 }
 
 // A CUSTOM button, w by h centered on (x, y), that opens the browser's color picker: an
@@ -138,7 +153,13 @@ export function addColorPicker(scene, x, y, w, h, { pick, open = () => {} }) {
 
 // A "◀ BACK" button in the top-left corner that starts scene `to` with `data` (Esc does too).
 export function addBackButton(scene, to = 'Menu', data = undefined) {
-  const back = () => scene.scene.start(to, data);
+  const back = () => {
+    if (scene.leaving) return;
+    scene.leaving = true;
+    unlockAudio();
+    if (to === 'Menu' || to === 'Labs') ensureMenuMusic();
+    scene.scene.start(to, data);
+  };
   const w = 120;
   const h = 44;
   const x = 16 + w / 2;
@@ -150,6 +171,7 @@ export function addBackButton(scene, to = 'Menu', data = undefined) {
   addText(scene, x, y, '◀ BACK', { scale: 2 }).setOrigin(0.5);
   button.on('pointerover', () => button.setFillStyle(0x2a6bb8));
   button.on('pointerout', () => button.setFillStyle(0x1d4e89));
+  button.on('pointerdown', () => unlockAudio());
   button.on('pointerup', back);
   scene.input.keyboard.once('keydown-ESC', back);
 }

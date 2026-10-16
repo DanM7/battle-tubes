@@ -41,12 +41,20 @@ export function applySite(site) {
   }
 }
 
-/** About pages with placeholders filled (same { title, lines } shape PagesScene expects). */
+/** About pages with placeholders filled (same { title, lines, link? } shape PagesScene expects). */
 export function aboutPages() {
   return SITE.about.pages.map((page) =>
     page.map((section) => ({
       title: fillPlaceholders(section.title),
       lines: (section.lines ?? []).map((line) => fillPlaceholders(line)),
+      ...(section.link
+        ? {
+            link: {
+              label: fillPlaceholders(section.link.label),
+              url: section.link.url,
+            },
+          }
+        : {}),
     })),
   );
 }

@@ -11,6 +11,8 @@ const SECTION_GAP = 18;
 const NAV_Y = 500;
 const NAV_BUTTON = { w: 64, h: 44 };
 const NAV_SPREAD = 150; // page buttons' distance from the center
+const LINK_COLOR = '#9fd0ff';
+const LINK_HOVER = '#ffdd55';
 
 // A screen of text under a title: `pages` is a list of pages, each a list of
 // { title, lines } sections, with ◀ ▶ to turn them when there's more than one. `back`
@@ -74,6 +76,19 @@ export class PagesScene extends Phaser.Scene {
         const text = addText(this, LEFT + 16, y, line, { scale: 2, wrap: wrap - 16 });
         this.pageObjects.push(text);
         y += text.height + LINE_GAP;
+      }
+      if (section.link?.url) {
+        const link = addText(this, LEFT + 16, y, section.link.label, {
+          scale: 2,
+          color: LINK_COLOR,
+          wrap: wrap - 16,
+        });
+        link.setInteractive({ useHandCursor: true });
+        link.on('pointerover', () => link.setColor(LINK_HOVER));
+        link.on('pointerout', () => link.setColor(LINK_COLOR));
+        link.on('pointerup', () => window.open(section.link.url, '_blank', 'noopener,noreferrer'));
+        this.pageObjects.push(link);
+        y += link.height + LINE_GAP;
       }
       y += SECTION_GAP;
     }

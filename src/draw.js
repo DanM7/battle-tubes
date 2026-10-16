@@ -1,4 +1,4 @@
-import { RIDER, PICKUPS, WAKE, ROPE_LENGTH, RIDER_Z } from './config.js';
+import { HEIGHT, RIDER, PICKUPS, WAKE, ROPE_LENGTH, RIDER_Z } from './config.js';
 import { wakeHeight, wakeProfile } from './wake.js';
 
 // Placeholder rectangle art. Each `p` is a projected point { x, y, s } where
@@ -9,14 +9,20 @@ const HITBOX_OUTLINE = 0x00ff88;
 const ONE_HANDED_OUTLINE = 0xff6b00; // tube outline while punching: it takes extra damage
 const WAKE_TOP = 0x4a82b4; // the raised water between the crests (river.js's water, lit)
 const WAKE_FACE = 0x24527c; // the outer faces
-const WAKE_SLICES = 24;
-const WAKE_NEAR_DEPTH = RIDER_Z * 0.65; // just past the bottom of the screen
+const WAKE_SLICES = 28;
+// Fraction of rider depth for the wake's near end — small enough that the V and foam
+// run off the bottom of the screen (0.65 left a hard cut above it, especially on low wake).
+const WAKE_NEAR_FRAC = 0.08;
 
 // The wake's crest distance, outer face width and height at `zAhead`: it spreads out in a
 // V from the boat and matches the physics (WAKE.crestX, WAKE.halfBase) at the riders' depth.
 function wakeAt(zAhead, boatDepth, amp) {
   const k = (boatDepth - zAhead) / ROPE_LENGTH;
   return { crest: WAKE.crestX * k, half: WAKE.halfBase * (0.35 + 0.65 * k), height: amp * Math.min(1, k / 0.35) };
+}
+
+function wakeNearDepth() {
+  return Math.max(40, RIDER_Z * WAKE_NEAR_FRAC);
 }
 
 // Fills the four-sided shape a-b-c-d as two triangles: fillPoints cuts polygons into
@@ -38,21 +44,23 @@ export function wakeSurfaceHeight(zAhead, x, boatDepth, amp) {
 // project(zAhead, worldX) returns a projected point.
 export function drawWake(g, project, boatDepth, amp) {
   const boat = project(boatDepth, 0);
-  const rider = project(RIDER_Z, 0);
+  const nearDepth = wakeNearDepth();
+  const near = project(nearDepth, 0);
+  // Foam trail from the boat all the way off the bottom of the screen.
   g.fillStyle(0xffffff, 0.16);
   fillQuad(
     g,
     { x: boat.x - 150 * boat.s, y: boat.y },
     { x: boat.x + 150 * boat.s, y: boat.y },
-    { x: rider.x + 520 * rider.s, y: rider.y + 40 },
-    { x: rider.x - 520 * rider.s, y: rider.y + 40 },
+    { x: near.x + 900 * near.s, y: HEIGHT + 60 },
+    { x: near.x - 900 * near.s, y: HEIGHT + 60 },
   );
   if (amp <= 0) return;
 
   const far = boatDepth - 80;
   const rows = [];
   for (let i = 0; i <= WAKE_SLICES; i++) {
-    const z = far - ((far - WAKE_NEAR_DEPTH) * i) / WAKE_SLICES;
+    const z = far - ((far - nearDepth) * i) / WAKE_SLICES;
     const { crest, half, height } = wakeAt(z, boatDepth, amp);
     const top = (side) => {
       const p = project(z, side * crest);

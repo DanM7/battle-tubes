@@ -209,13 +209,13 @@ function drawLock(g, x, y, size) {
   g.fillRect(x - 4 * k, y + 26 * k, 8 * k, 20 * k);
 }
 
-// 1-player rider select for one mode. The grid's top row scrolls sideways: unlocked secret
-// CHARACTERS, then the player's own custom riders, then a + for a new one. Below are the
-// other CHARACTERS with this mode's names and stats, locked until you beat them in this
-// mode, then a "???" spot that's always locked. On the right, the highlighted rider idles
-// on their tube next to their stats. A custom rider is Dan's picture made over: tabs under
-// its name edit its stats (STATS), its skin, hair and suit colors, its hair STYLE, and
-// its gender and build (BODY).
+// 1-player rider select for one mode. The grid's top row scrolls sideways: only the
+// player's own custom riders (shared across 1999 and 2010), then a + for a new one. Below are the roster CHARACTERS
+// (locked until you beat them in this mode), then a "???" mystery spot that's always
+// locked, then any unlocked bonus/secret riders (Bart, Kara, …). On the right, the
+// highlighted rider idles on their tube next to their stats. A custom rider is Dan's
+// picture made over: tabs under its name edit its stats (STATS), its skin, hair and suit
+// colors, its hair STYLE, and its gender and build (BODY).
 // CHARACTERS always look like themselves.
 //
 // Each slot is { row, col, x, y, shown } plus `custom` (that rider's index; `plus` too for
@@ -249,8 +249,8 @@ export class PlayerSelectScene extends Phaser.Scene {
 
   create() {
     ensureMenuMusic();
-    this.secrets = CHARACTERS.filter((c) => c.secret && isUnlocked(this.difficulty, c));
-    this.roster = [...CHARACTERS.filter((c) => !c.secret).map((c) => ({ c })), { mystery: true }];
+    const bonus = CHARACTERS.filter((c) => c.secret && isUnlocked(this.difficulty, c)).map((c) => ({ c }));
+    this.roster = [...CHARACTERS.filter((c) => !c.secret).map((c) => ({ c })), { mystery: true }, ...bonus];
     this.grid = gridLayout(this.roster.length);
     this.scroll = 0; // how many of the custom row's riders are scrolled off to the left
 
@@ -422,8 +422,8 @@ export class PlayerSelectScene extends Phaser.Scene {
     const count = customRiderCount(this.difficulty);
     // What the + shows until SAVE writes it as a new rider.
     this.draft = newCustomRider(this.difficulty, count);
+    // Top accordion: created riders only (+ NEW). Bonus unlocks live in the roster below.
     const top = [
-      ...this.secrets.map((c) => ({ c })),
       ...Array.from({ length: count }, (_, i) => ({ custom: i })),
       ...(count < CUSTOM.maxRiders ? [{ custom: count, plus: true }] : []),
     ];

@@ -3,7 +3,7 @@ import { WIDTH, DIFFICULTIES } from '../config.js';
 import { hasUnlockedHard } from '../progress.js';
 import { addBackButton, preloadBackground, addBackground, BUTTON_ALPHA, BUTTON_HOVER_ALPHA } from './ui.js';
 import { addText } from '../pixelFont.js';
-import { ensureMenuMusic } from '../audio.js';
+import { ensureMenuMusic, unlockAudio } from '../audio.js';
 
 const SQUARE = 360;
 const GAP = 40;
@@ -28,6 +28,8 @@ export class DifficultyScene extends Phaser.Scene {
   }
 
   create() {
+    this.leaving = false;
+    unlockAudio();
     ensureMenuMusic();
     addBackground(this);
 
@@ -63,12 +65,19 @@ export class DifficultyScene extends Phaser.Scene {
       text(92, blurb, 2);
       square.on('pointerover', () => square.setFillStyle(hover, BUTTON_HOVER_ALPHA));
       square.on('pointerout', () => square.setFillStyle(fill, BUTTON_ALPHA));
+      // Unlock on press (mobile gesture); choose() ignores a second tap while leaving.
+      square.on('pointerdown', () => unlockAudio());
       square.on('pointerup', () => this.choose(key));
     }
   }
 
   choose(difficulty) {
+    if (this.leaving) return;
     if (difficulty === 'hard' && !hasUnlockedHard()) return;
+    this.leaving = true;
+    this.input.enabled = false;
+    unlockAudio();
+    ensureMenuMusic();
     this.scene.start('PlayerSelect', { difficulty });
   }
 }

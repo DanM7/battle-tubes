@@ -150,8 +150,38 @@ const activeMusic = new Set(); // playlist voices (cut on stop / track switch)
 
 function audioCtx() {
   if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
-  if (ctx.state === 'suspended') ctx.resume();
   return ctx;
+}
+
+/**
+ * Create/resume the AudioContext. Must run inside a user-gesture call stack on mobile
+ * (iOS/Android ignore resume() that isn't tied to a tap). Safe to call often.
+ */
+export function unlockAudio() {
+  const ac = audioCtx();
+  if (ac.state === 'suspended') {
+    try {
+      return ac.resume();
+    } catch {
+      return Promise.resolve();
+    }
+  }
+  return Promise.resolve();
+}
+
+/** One-shot DOM listeners so the first real tap unlocks audio even outside Phaser. */
+export function installAudioUnlockListeners() {
+  const unlock = () => {
+    unlockAudio().then(() => {
+      if (!music) ensureMenuMusic();
+    });
+    window.removeEventListener('touchstart', unlock);
+    window.removeEventListener('pointerdown', unlock);
+    window.removeEventListener('keydown', unlock);
+  };
+  window.addEventListener('touchstart', unlock, { once: true, passive: true });
+  window.addEventListener('pointerdown', unlock, { once: true });
+  window.addEventListener('keydown', unlock, { once: true });
 }
 
 function trackSfx(node) {
@@ -268,6 +298,7 @@ function cueGain(cue) {
 export function playSfx(id) {
   const cue = SFX.find((s) => s.id === id);
   if (!cue) return;
+  unlockAudio();
   const level = volumeGain('sfx') * cueGain(cue);
   if (level <= 0) return;
   const buf = sfxBuffers.get(id);
@@ -415,6 +446,8 @@ export function playMusic(trackId, { bpm = MUSIC.bpm.menu, switchBars = MUSIC.sw
   const track = MUSIC_TRACKS.find((t) => t.id === trackId);
   if (!track) return;
   const ac = audioCtx();
+  // Kick resume in this call stack (needed when called from a tap handler).
+  unlockAudio();
   stopMusic();
   const gain = ac.createGain();
   gain.gain.value = 1;
@@ -432,9 +465,8 @@ export function playMusic(trackId, { bpm = MUSIC.bpm.menu, switchBars = MUSIC.sw
     step: 0,
     phraseStep: 0,
   };
-  // Resume may be async; sequencer no-ops until state === 'running'.
-  if (ac.state === 'suspended') ac.resume().finally(() => scheduleMusicStep(gen));
-  else scheduleMusicStep(gen);
+  // Sequencer waits until the context is running (see scheduleMusicStep).
+  unlockAudio().finally(() => scheduleMusicStep(gen));
 }
 
 /** Snap BPM immediately (cancels any ramp). */
@@ -494,6 +526,7 @@ function defaultRotateTrackId() {
 
 /** Menus: start the rotate playlist at menu BPM, or ease back to it if already playing. */
 export function ensureMenuMusic() {
+  unlockAudio();
   const id = defaultRotateTrackId();
   if (!id) return;
   if (!music) {
@@ -509,6 +542,7 @@ export function ensureMenuMusic() {
 
 /** Battle: playlist at the given boat tier's BPM (defaults to slow). */
 export function ensureBattleMusic(tier = 'slow') {
+  unlockAudio();
   const id = defaultRotateTrackId();
   if (!id) return;
   const bpm = bpmForBoatTier(tier);
