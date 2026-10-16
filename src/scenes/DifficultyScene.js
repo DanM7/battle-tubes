@@ -3,6 +3,7 @@ import { WIDTH, DIFFICULTIES } from '../config.js';
 import { hasUnlockedHard } from '../progress.js';
 import { addBackButton, preloadBackground, addBackground, BUTTON_ALPHA, BUTTON_HOVER_ALPHA } from './ui.js';
 import { addText } from '../pixelFont.js';
+import { ensureMenuMusic } from '../audio.js';
 
 const SQUARE = 360;
 const GAP = 40;
@@ -27,6 +28,7 @@ export class DifficultyScene extends Phaser.Scene {
   }
 
   create() {
+    ensureMenuMusic();
     addBackground(this);
 
     addText(this, WIDTH / 2, 70, 'SELECT MODE', { scale: 5, color: '#ffdd55' }).setOrigin(0.5);

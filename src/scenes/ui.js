@@ -1,6 +1,43 @@
 import { WIDTH, HEIGHT } from '../config.js';
+import { TUBE_COLORS } from '../tubeArt.js';
 import { addText } from '../pixelFont.js';
 import { toHex, fromHex } from '../riderColors.js';
+
+const TITLE_BANDS = 8; // stepped blue→green bands (pixel-art gradient, not smooth)
+
+const lerpByte = (a, b, t) => Math.round(a + (b - a) * t);
+const lerpColor = (a, b, t) =>
+  (lerpByte((a >> 16) & 255, (b >> 16) & 255, t) << 16) |
+  (lerpByte((a >> 8) & 255, (b >> 8) & 255, t) << 8) |
+  lerpByte(a & 255, b & 255, t);
+
+// Menu title in a stepped blue→green fill using the tube vinyl colors (TUBE_COLORS).
+// Drawn as masked horizontal bands so the letters stay crisp pixel art.
+export function addTubeGradientTitle(scene, x, y, str, { scale = 8 } = {}) {
+  const from = TUBE_COLORS.blue.base;
+  const to = TUBE_COLORS.green.base;
+  const probe = addText(scene, x, y, str, { scale, color: 0xffffff }).setOrigin(0.5);
+  const bounds = probe.getTextBounds(true).global;
+  const left = bounds.x;
+  const top = bounds.y;
+  const w = Math.ceil(bounds.width);
+  const h = Math.max(1, Math.ceil(bounds.height));
+  probe.destroy();
+
+  const slices = [];
+  for (let i = 0; i < TITLE_BANDS; i++) {
+    const t = TITLE_BANDS <= 1 ? 0 : i / (TITLE_BANDS - 1);
+    const slice = addText(scene, x, y, str, { scale, color: lerpColor(from, to, t) }).setOrigin(0.5);
+    const g = scene.make.graphics({ add: false });
+    const y0 = top + Math.floor((h * i) / TITLE_BANDS);
+    const y1 = top + Math.floor((h * (i + 1)) / TITLE_BANDS);
+    g.fillStyle(0xffffff);
+    g.fillRect(left - 2, y0, w + 4, Math.max(1, y1 - y0));
+    slice.setMask(g.createGeometryMask());
+    slices.push(slice);
+  }
+  return slices;
+}
 
 const BACKGROUND = { key: 'menu-background', url: 'assets/backgrounds/q-house.jpg' };
 

@@ -7,6 +7,7 @@ import { passwordMatches } from '../passwords.js';
 import { settings, saveSettings } from '../settings.js';
 import { addBackButton } from './ui.js';
 import { addText } from '../pixelFont.js';
+import { ensureMenuMusic } from '../audio.js';
 
 const MAX_LETTERS = 10;
 const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -30,6 +31,7 @@ export class PasswordScene extends Phaser.Scene {
   }
 
   create() {
+    ensureMenuMusic();
     this.entry = '';
 
     const bg = this.add.graphics();

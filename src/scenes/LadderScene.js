@@ -8,6 +8,7 @@ import { TubeRider, preloadRiderAnim, isRiderAnimLoaded, ATTACK_ANIM } from '../
 import { tubeTextures, TEXELS_PER_UNIT, TUBE_WIDTH } from '../tubeArt.js';
 import { addBackButton, preloadBackground, addBackground, addMenuButton } from './ui.js';
 import { addText } from '../pixelFont.js';
+import { ensureMenuMusic } from '../audio.js';
 
 const TITLE_X = 440; // centered between the back button and the year
 // The ladder sits in the left half; the next opponent and their description fill the right.
@@ -57,6 +58,7 @@ export class LadderScene extends Phaser.Scene {
   }
 
   create() {
+    ensureMenuMusic();
     const { campaign } = this;
     const champion = isChampion(campaign);
 

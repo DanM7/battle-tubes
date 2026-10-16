@@ -65,7 +65,7 @@ const PAGES = [
       title: 'TOUCH',
       lines: [
         '◀ ▶ lean and ▼ duck on the left, HI / MID / LOW on the right.',
-        'Gear (under your name) opens settings, including Debug Mode for turn and speed hints. ❚❚ pauses.',
+        'Gear (under your name) opens settings: Turn Info, music/SFX volume, and unlocked cheats. ❚❚ pauses.',
       ],
     },
   ],

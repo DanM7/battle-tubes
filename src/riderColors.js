@@ -5,19 +5,27 @@ import { CHARACTERS } from './characters.js';
 // redraws every frame's skin, trunks and hair in a few fixed shades of Dan's (the
 // animation JSON's palette, darkest first); this swaps those exact colors for shades made
 // from a player's chosen colors, shaded like Dan's.
+// Swatch lists and Dan's defaults come from game.json (battle-tubes-data).
 
-// Choices for create-a-player. Each is the middle shade the others are made from: the
-// third of four for skin and hair, the second of three for trunks.
-export const SKIN_TONES = [0xf2bf9f, 0xe9a37f, 0xd88369, 0xc7794c, 0xb0814f, 0x95583a, 0x70412b, 0x4b2b1f];
-export const TRUNKS_COLORS = [0xc45e29, 0xd62828, 0x1d4ed8, 0xfcd34d, 0x1f2937, 0x2f9e44, 0x7b3fc4, 0xd9468f, 0x1f9e9e, 0xd8dce4];
+export const SKIN_TONES = [];
+export const TRUNKS_COLORS = [];
 // Skin for special riders (Bart's yellow): not offered from the start; to be unlocked.
 export const UNLOCKABLE_SKIN_TONES = TRUNKS_COLORS;
-// Hair is only Dan's own (and custom riders'); other riders' heads keep theirs as drawn.
-export const HAIR_COLORS = [0xe0c27a, 0xc89a55, 0xa8441f, 0x9f5c3c, 0x7f4a32, 0x5a3825, 0x2b2421, 0x9a9a9a];
-// Dan as he looks in the game: his pictures as drawn, but hair a shade darker.
-export const DAN_COLORS = { skin: 0xd88369, trunks: 0xc45e29, hair: 0x7f4a32, skinShading: 1, trunksShading: 1, hairShading: 1 };
+export const HAIR_COLORS = [];
+export const DAN_COLORS = { skin: 0, trunks: 0, hair: 0, skinShading: 1, trunksShading: 1, hairShading: 1 };
 export const PARTS = ['skin', 'trunks', 'hair'];
 export const BASE_SHADE = { skin: 2, trunks: 1, hair: 2 };
+
+export function applyColors({ skinTones, trunksColors, hairColors, danColors, baseShade }) {
+  SKIN_TONES.length = 0;
+  SKIN_TONES.push(...skinTones);
+  TRUNKS_COLORS.length = 0;
+  TRUNKS_COLORS.push(...trunksColors);
+  HAIR_COLORS.length = 0;
+  HAIR_COLORS.push(...hairColors);
+  Object.assign(DAN_COLORS, danColors);
+  Object.assign(BASE_SHADE, baseShade);
+}
 
 // `colors` is { skin, trunks, hair } (0xRRGGBB, their middle shades) and how strongly each
 // is shaded, { skinShading, trunksShading, hairShading } (1 is like Dan; more is more
@@ -34,7 +42,9 @@ export function riderTexture(scene, anim, colors = DAN_COLORS) {
 
   const swaps = new Map();
   // Trunks shades also cover near-matches: Dan's orange outline pixels sit a little off
-  // the palette, and without this they stay orange after a recolor.
+  // the palette, and without this they stay orange after a recolor. Only below the head —
+  // riders with their own drawn hair (Rob, Adam, …) keep warm blond/brown pixels that would
+  // otherwise look "near" orange and pick up the trunks color (green hair, red hair, …).
   const near = [];
   for (const part of parts) {
     const from = meta.palette[part].map((hex) => parseInt(hex.slice(1), 16));
@@ -50,11 +60,17 @@ export function riderTexture(scene, anim, colors = DAN_COLORS) {
   ctx.drawImage(source, 0, 0);
   const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
   const px = image.data;
+  const { frameHeight } = meta;
+  const headBottom = Math.floor(frameHeight * HEAD_SKIP_TRUNKS_NEAR);
+  const rowW = canvas.width;
   for (let i = 0; i < px.length; i += 4) {
     if (!px[i + 3]) continue;
     const color = (px[i] << 16) | (px[i + 1] << 8) | px[i + 2];
     let to = swaps.get(color);
-    if (to === undefined && near.length) to = nearestTrunks(near, px[i], px[i + 1], px[i + 2]);
+    if (to === undefined && near.length) {
+      const y = Math.floor(i / 4 / rowW);
+      if (y >= headBottom) to = nearestTrunks(near, px[i], px[i + 1], px[i + 2]);
+    }
     if (to === undefined) continue;
     px[i] = to >> 16;
     px[i + 1] = (to >> 8) & 255;
@@ -70,6 +86,8 @@ const middleShade = (meta, part) => parseInt(meta.palette[part][BASE_SHADE[part]
 
 // How close a pixel can be to a trunks palette color and still recolor with it (squared RGB).
 const TRUNKS_NEAR = 55 * 55;
+// Top of each strip frame: never apply trunks near-matching (drawn hair lives here).
+const HEAD_SKIP_TRUNKS_NEAR = 0.32;
 function nearestTrunks(near, r, g, b) {
   let best;
   let bestD = TRUNKS_NEAR;

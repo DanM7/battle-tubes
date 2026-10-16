@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { WIDTH, HEIGHT } from '../config.js';
 import { addCloseButton, addBackButton } from './ui.js';
 import { addText } from '../pixelFont.js';
+import { ensureMenuMusic } from '../audio.js';
 
 const LEFT = 60;
 const TOP = 96;
@@ -23,6 +24,7 @@ export class PagesScene extends Phaser.Scene {
   }
 
   create() {
+    ensureMenuMusic();
     const bg = this.add.graphics();
     bg.fillGradientStyle(0x5fb8f5, 0x5fb8f5, 0x1d5f99, 0x1d5f99, 1);
     bg.fillRect(0, 0, WIDTH, HEIGHT);

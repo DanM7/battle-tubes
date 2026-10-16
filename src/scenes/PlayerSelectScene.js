@@ -4,6 +4,8 @@ import { CHARACTERS } from '../characters.js';
 import { Rider } from '../rider.js';
 import { newCampaign, riderOptions, customRiderOptions, isUnlocked, unlockText, displayName, spriteKey, characterArt } from '../campaign.js';
 import { customRider, customRiderCount, customName, newCustomRider, saveCustomRider, deleteCustomRider } from '../customRiders.js';
+import { encodeCustomRider } from '../customCode.js';
+import { playSfx, ensureMenuMusic } from '../audio.js';
 import { enduranceRating, pointsLeft } from '../build.js';
 import {
   TubeRider,
@@ -69,8 +71,8 @@ const POINTS_Y = 356;
 const STEP_BUTTON = 32;
 const STEPPER_W = 224; // [-] value [+]
 const STEPPER_MID = STATS_X + STEPPER_W / 2;
-// SAVE and DELETE sit on the bottom of the custom panel; the preview sits above them.
-const BUTTON_ROW = { y: 470, w: 140, h: 36, gap: 20 };
+// SAVE, EXPORT, DELETE sit under the custom panel; the preview sits above them.
+const BUTTON_ROW = { y: 470, w: 120, h: 36, gap: 14 };
 const GRIP_COLOR = 0x7dff7d;
 const ENDURANCE_COLOR = 0xff9f43;
 // The SKIN, HAIR and TRUNKS tabs: swatches (picture colors) in rows of `cols`, then a
@@ -96,7 +98,9 @@ const ART_TEXEL = 1.3; // how big a custom rider's picture is drawn
 const FEET_Y = 420; // a CHARACTERS entry's sprite stands on this line...
 const SPRITE_PX_PER_INCH = 3.9; // ...this tall per inch of their height
 const UNLOCK = { x: PANEL.x + 28, y: BUTTON_ROW.y }; // the lock, then "Beat ... to unlock" after it
-const HEAD_CROP = 0.3; // a grid spot shows a square this fraction of the sprite's height, from its top
+const HEAD_CROP = 0.3; // standing sprites: square this fraction of height, from the top
+// Custom hold-frame headshots: square about this share of the frame, centered on the eyes.
+const CUSTOM_HEAD_CROP = 0.42;
 const HIGHLIGHT = 0xffdd55;
 const LOCKED_ALPHA = 0.3;
 const MYSTERY_GRAY = 0x8a8f98;
@@ -115,6 +119,51 @@ function setFittedText(text, str, maxW) {
 }
 
 const formatHeight = (inches) => `${Math.floor(inches / 12)}'${inches % 12}"`;
+
+// Square crop of the hold frame with the estimated eye point at its center (shows more face
+// than a top-aligned crop). `source` is the strip's first frame already drawn or the image.
+function eyeCenteredCrop(source, frameWidth, frameHeight) {
+  const probe = document.createElement('canvas');
+  probe.width = frameWidth;
+  probe.height = frameHeight;
+  const pctx = probe.getContext('2d', { willReadFrequently: true });
+  pctx.drawImage(source, 0, 0, frameWidth, frameHeight, 0, 0, frameWidth, frameHeight);
+  const { data } = pctx.getImageData(0, 0, frameWidth, frameHeight);
+
+  let minX = frameWidth;
+  let maxX = 0;
+  let minY = frameHeight;
+  let maxY = 0;
+  for (let y = 0; y < frameHeight; y++) {
+    for (let x = 0; x < frameWidth; x++) {
+      if (data[(y * frameWidth + x) * 4 + 3] < 200) continue;
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+    }
+  }
+
+  const fallback = () => {
+    const side = Math.min(Math.floor(frameHeight * CUSTOM_HEAD_CROP), frameWidth);
+    return { sx: Math.floor((frameWidth - side) / 2), sy: 0, side };
+  };
+  if (maxX < minX) return fallback();
+
+  const bodyH = maxY - minY + 1;
+  // Seated riders: head is the top ~28% of the silhouette; eyes sit ~40% down that head.
+  const headH = Math.max(8, bodyH * 0.28);
+  const eyeX = (minX + maxX) / 2;
+  const eyeY = minY + headH * 0.4;
+  const side = Math.min(
+    Math.max(Math.floor(headH * 2.4), Math.floor(frameHeight * CUSTOM_HEAD_CROP)),
+    frameWidth,
+    frameHeight,
+  );
+  const sx = Math.max(0, Math.min(frameWidth - side, Math.round(eyeX - side / 2)));
+  const sy = Math.max(0, Math.min(frameHeight - side, Math.round(eyeY - side / 2)));
+  return { sx, sy, side };
+}
 
 // The scrolling custom row on top, then `rosterCount` riders below it: at least MIN_COLS
 // columns, more (and smaller cells) as the roster grows. at(row, col) is that spot's center.
@@ -199,6 +248,7 @@ export class PlayerSelectScene extends Phaser.Scene {
   }
 
   create() {
+    ensureMenuMusic();
     this.secrets = CHARACTERS.filter((c) => c.secret && isUnlocked(this.difficulty, c));
     this.roster = [...CHARACTERS.filter((c) => !c.secret).map((c) => ({ c })), { mystery: true }];
     this.grid = gridLayout(this.roster.length);
@@ -295,8 +345,9 @@ export class PlayerSelectScene extends Phaser.Scene {
     return key;
   }
 
-  // Dan's (or a girl's) hold frame in a custom rider's skin/hair/trunks colors, for the
-  // grid headshot. Loads the anim on first need.
+  // Idle-stance headshot for a custom rider's grid spot: a square of their hold frame
+  // centered on the eyes (so more of the face shows), flipped to face left like standing icons.
+  // Loads the anim on first need.
   ensureCustomPortrait(look) {
     const anim = buildAnim(look.build, look.hairStyle, look.gender);
     if (!isRiderAnimLoaded(this, anim)) {
@@ -312,10 +363,15 @@ export class PlayerSelectScene extends Phaser.Scene {
     if (this.textures.exists(key)) return key;
     const meta = this.cache.json.get(`${anim.key}-meta`);
     const source = this.textures.get(sheet).getSourceImage();
+    const { sx, sy, side } = eyeCenteredCrop(source, meta.frameWidth, meta.frameHeight);
     const canvas = document.createElement('canvas');
-    canvas.width = meta.frameWidth;
-    canvas.height = meta.frameHeight;
-    canvas.getContext('2d').drawImage(source, 0, 0, meta.frameWidth, meta.frameHeight, 0, 0, meta.frameWidth, meta.frameHeight);
+    canvas.width = side;
+    canvas.height = side;
+    const ctx = canvas.getContext('2d');
+    // Flip so the over-the-shoulder hold face matches the left-facing standing icons.
+    ctx.translate(side, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(source, sx, sy, side, side, 0, 0, side, side);
     this.textures.addCanvas(key, canvas);
     return key;
   }
@@ -476,7 +532,12 @@ export class PlayerSelectScene extends Phaser.Scene {
       g.fillRect(left, top + cell - strip, cell, strip);
       g.lineStyle(2, 0xffffff, 0.7);
       g.strokeRect(left, top, cell, cell);
-      const head = s.c ? this.spriteOf(s.c) : s.custom !== undefined && !s.plus ? this.ensureCustomPortrait(this.customOf(s.custom).look) : null;
+      // + NEW keeps its plus mark (see drawPortraits); saved customs use the idle headshot.
+      const head = s.c
+        ? this.spriteOf(s.c)
+        : s.custom !== undefined && !s.plus
+          ? this.ensureCustomPortrait(this.customOf(s.custom).look)
+          : null;
       if (head) this.cellObjects.push(this.addHeadshot(s, head));
       if (locked) drawLock(locks, left + cell - 20 * k, top + 14 * k, 26 * k);
       if (s.mystery) {
@@ -523,11 +584,13 @@ export class PlayerSelectScene extends Phaser.Scene {
   }
 
   // The top middle of a rider's sprite (head and shoulders), filling the spot above the name.
+  // Custom portraits are already that square (see ensureCustomPortrait); standing sprites crop here.
   addHeadshot(s, textureKey) {
     const { cell, k } = this.grid;
     const image = this.add.image(s.x, s.y - cell / 2, textureKey).setOrigin(0.5, 0).setDepth(2);
-    const side = Math.min(image.height * HEAD_CROP, image.width);
-    image.setCrop((image.width - side) / 2, 0, side, side);
+    const preCropped = textureKey.startsWith('custom-portrait:');
+    const side = preCropped ? Math.min(image.width, image.height) : Math.min(image.height * HEAD_CROP, image.width);
+    if (!preCropped) image.setCrop((image.width - side) / 2, 0, side, side);
     image.setScale((cell - NAME_STRIP * k) / side);
     if (this.isLocked(s)) image.setAlpha(LOCKED_ALPHA);
     return image;
@@ -602,8 +665,7 @@ export class PlayerSelectScene extends Phaser.Scene {
       ]),
     );
 
-    const saveX = PANEL_CENTER_X - BUTTON_ROW.w / 2 - BUTTON_ROW.gap / 2;
-    const deleteX = PANEL_CENTER_X + BUTTON_ROW.w / 2 + BUTTON_ROW.gap / 2;
+    const { saveX, exportX, deleteX } = this.buttonXs(true);
     this.saveButton = this.add
       .rectangle(saveX, BUTTON_ROW.y, BUTTON_ROW.w, BUTTON_ROW.h, 0x2f7d32)
       .setStrokeStyle(2, 0xffffff)
@@ -613,6 +675,15 @@ export class PlayerSelectScene extends Phaser.Scene {
     this.saveButton.on('pointerout', () => this.saveButton.setFillStyle(0x2f7d32));
     this.saveButton.on('pointerdown', () => this.pressSave());
 
+    this.exportButton = this.add
+      .rectangle(exportX, BUTTON_ROW.y, BUTTON_ROW.w, BUTTON_ROW.h, 0x1d4e89)
+      .setStrokeStyle(2, 0xffffff)
+      .setInteractive({ useHandCursor: true });
+    this.exportLabel = addText(this, exportX, BUTTON_ROW.y, 'EXPORT', { scale: 2 }).setOrigin(0.5);
+    this.exportButton.on('pointerover', () => this.exportButton.setFillStyle(0x2a6bb8));
+    this.exportButton.on('pointerout', () => this.exportButton.setFillStyle(0x1d4e89));
+    this.exportButton.on('pointerdown', () => this.pressExport());
+
     this.deleteButton = this.add
       .rectangle(deleteX, BUTTON_ROW.y, BUTTON_ROW.w, BUTTON_ROW.h, 0x9b2226)
       .setStrokeStyle(2, 0xffffff)
@@ -621,6 +692,13 @@ export class PlayerSelectScene extends Phaser.Scene {
     this.deleteButton.on('pointerover', () => this.deleteButton.setFillStyle(0xbf2a30));
     this.deleteButton.on('pointerout', () => this.deleteButton.setFillStyle(0x9b2226));
     this.deleteButton.on('pointerdown', () => this.pressDelete());
+
+    this.exportCodeText = addText(this, PANEL_CENTER_X, BUTTON_ROW.y + 28, '', {
+      scale: 1,
+      font: 'small',
+      color: '#7dff7d',
+      wrap: PANEL.w - 16,
+    }).setOrigin(0.5, 0).setVisible(false);
 
     this.lockG = this.add.graphics();
     drawLock(this.lockG, UNLOCK.x, UNLOCK.y - 3, 30);
@@ -773,6 +851,8 @@ export class PlayerSelectScene extends Phaser.Scene {
     this.scrollToSlot();
     this.setFocus('grid');
     this.deleteArmed = false;
+    this.exportCodeText?.setVisible(false);
+    if (this.exportLabel?.active) this.exportLabel.setText('EXPORT');
     this.beginEdit();
     this.syncNameInput();
     this.refresh();
@@ -878,8 +958,13 @@ export class PlayerSelectScene extends Phaser.Scene {
       return;
     }
     const next = this.stepped(stat, dir);
-    if (next) return this.editCustom({ heightIn: next.heightIn, grip: next.grip });
-    if (dir > 0) this.flashPoints();
+    if (!next) {
+      if (dir > 0) this.flashPoints();
+      return;
+    }
+    const before = pointsLeft(this.customOf(this.slot.custom));
+    this.editCustom({ heightIn: next.heightIn, grip: next.grip });
+    if (pointsLeft(next) < before) playSfx('pickup');
   }
 
   // Out of build points.
@@ -901,8 +986,8 @@ export class PlayerSelectScene extends Phaser.Scene {
     if (this.slot.plus) this.draft = { ...this.draft, ...change };
     else this.edit = { ...this.edit, ...change };
     this.previews[this.cell] = this.makePreview(this.cell);
-    // Look changes update the Dan-face grid portrait; name-only edits skip the rebuild.
-    if (change.look && this.isSaved) this.buildCells();
+    // Look changes update the idle-stance grid headshot; name-only edits skip the rebuild.
+    if (change.look) this.buildCells();
     this.refresh();
   }
 
@@ -946,6 +1031,29 @@ export class PlayerSelectScene extends Phaser.Scene {
     deleteCustomRider(this.difficulty, this.slot.custom);
     this.rebuild();
     this.select(this.cell);
+  }
+
+  // Centers for SAVE / EXPORT / DELETE. With only SAVE (unsaved +), it sits alone in the middle.
+  buttonXs(saved) {
+    const step = BUTTON_ROW.w + BUTTON_ROW.gap;
+    if (!saved) return { saveX: PANEL_CENTER_X, exportX: PANEL_CENTER_X, deleteX: PANEL_CENTER_X };
+    return {
+      saveX: PANEL_CENTER_X - step,
+      exportX: PANEL_CENTER_X,
+      deleteX: PANEL_CENTER_X + step,
+    };
+  }
+
+  // Packs the on-screen custom rider into a base-36 share code and copies it when possible.
+  pressExport() {
+    if (!this.isSaved) return;
+    const code = encodeCustomRider(this.customOf(this.slot.custom));
+    this.exportCodeText.setText(code).setVisible(true);
+    this.exportLabel.setText('COPIED!');
+    this.time.delayedCall(1400, () => {
+      if (this.exportLabel?.active) this.exportLabel.setText('EXPORT');
+    });
+    navigator.clipboard?.writeText?.(code).catch(() => {});
   }
 
   shake() {
@@ -1000,7 +1108,13 @@ export class PlayerSelectScene extends Phaser.Scene {
       this.drawPips(this.enduranceG, rows.endurance, MAX_GRIP, false, MYSTERY_GRAY);
     } else {
       this.drawPips(this.gripG, rows.grip, stats.grip, custom, GRIP_COLOR);
-      this.drawPips(this.enduranceG, rows.endurance, enduranceRating(stats.heightIn), custom, ENDURANCE_COLOR);
+      this.drawPips(
+        this.enduranceG,
+        rows.endurance,
+        enduranceRating(stats.heightIn, custom ? 0 : stats.enduranceBonus),
+        custom,
+        ENDURANCE_COLOR,
+      );
     }
     const colorTab = Boolean(PALETTES[tab]);
     const choiceShown = Object.fromEntries(Object.entries(CHOICES).map(([key, c]) => [key, tab === c.tab]));
@@ -1017,15 +1131,17 @@ export class PlayerSelectScene extends Phaser.Scene {
     if (custom) this.pointsText.setText(`${pointsLeft(stats)} OF ${CUSTOM.buildPoints}`);
     const dirty = this.isDirty;
     const saveAlpha = dirty ? 1 : 0.4;
-    const saveX = this.isSaved
-      ? PANEL_CENTER_X - BUTTON_ROW.w / 2 - BUTTON_ROW.gap / 2
-      : PANEL_CENTER_X;
+    const saved = this.isSaved;
+    const { saveX, exportX, deleteX } = this.buttonXs(saved);
     this.saveButton.setVisible(custom).setAlpha(saveAlpha).setX(saveX);
     this.saveLabel.setVisible(custom).setAlpha(saveAlpha).setX(saveX);
     if (custom && dirty) this.saveButton.setInteractive({ useHandCursor: true });
     else this.saveButton.disableInteractive();
-    this.deleteButton.setVisible(this.isSaved);
-    this.deleteText.setVisible(this.isSaved).setText(this.deleteArmed ? 'SURE?' : 'DELETE');
+    this.exportButton.setVisible(saved).setX(exportX);
+    this.exportLabel.setVisible(saved).setX(exportX);
+    if (!saved) this.exportCodeText.setVisible(false);
+    this.deleteButton.setVisible(saved).setX(deleteX);
+    this.deleteText.setVisible(saved).setX(deleteX).setText(this.deleteArmed ? 'SURE?' : 'DELETE');
     const needsName = this.needsName;
     this.nameBox.setStrokeStyle(3, needsName ? HIGHLIGHT : 0xffffff);
     this.previewG.setAlpha(locked && !s.mystery ? LOCKED_ALPHA : 1);

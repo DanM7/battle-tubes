@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { WIDTH } from '../config.js';
 import { addText } from '../pixelFont.js';
 import { preloadBackground, addBackground, addBackButton, addMenuButton, menuGridCell } from './ui.js';
+import { ensureMenuMusic } from '../audio.js';
 
 // Developer test benches, reached from the LAB button on the main menu (on localhost). The
 // address bar follows along so a reload comes back to the same place: ?lab= on this screen,
@@ -13,6 +14,10 @@ const LABS = [
   { label: 'CREATE', scene: 'CreateLab' },
   { label: 'OPPONENTS', scene: 'OpponentsLab' },
   { label: 'BONUS OPP.', scene: 'BonusLab' },
+  { label: 'MUSIC', scene: 'MusicLab' },
+  { label: 'SFX', scene: 'SfxLab' },
+  { label: 'PASSWORDS', scene: 'PasswordLab' },
+  { label: 'CHAR. IMPORT', scene: 'CharImportLab' },
 ];
 
 const simplified = (text) => text.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -45,14 +50,15 @@ export class LabsScene extends Phaser.Scene {
   }
 
   create() {
+    ensureMenuMusic();
     setLabQuery('');
     addBackground(this);
     addBackButton(this);
-    addText(this, WIDTH / 2, 110, 'LABS', { scale: 8, color: '#ffdd55' }).setOrigin(0.5);
-    addText(this, WIDTH / 2, 178, 'Test benches for new art and moves', { scale: 2 }).setOrigin(0.5);
+    addText(this, WIDTH / 2, 100, 'LABS', { scale: 8, color: '#ffdd55' }).setOrigin(0.5);
+    addText(this, WIDTH / 2, 160, 'Test benches for art, moves, audio and codes', { scale: 2 }).setOrigin(0.5);
     LABS.forEach((lab, i) => {
-      const { x, y } = menuGridCell(i);
-      addMenuButton(this, x, y, lab.label, () => startLab(this, lab));
+      const { x, y } = menuGridCell(i, { rowY: 230, rowStep: 56 });
+      addMenuButton(this, x, y, lab.label, () => startLab(this, lab), { h: 50, textScale: 2 });
     });
   }
 }

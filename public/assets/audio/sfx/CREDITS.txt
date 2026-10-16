@@ -1,0 +1,30 @@
+Sound samples in this folder (for SFX lab A/B testing and in-game pools)
+
+Splash / bubble (sample-splash-*.ogg, sample-bubble.ogg, rider-splash.ogg, fall-in.ogg)
+  Source: "40 CC0 water / splash / slime SFX" by rubberduck on OpenGameArt
+  License: CC0
+  https://opengameart.org/content/40-cc0-water-splash-slime-sfx
+
+Engine leftovers (sample-engine-*.ogg, boat-speed-up.ogg, boat-slow-down.ogg)
+  Source: Kenney Sci-Fi Sounds
+  License: CC0
+  https://opengameart.org/content/sci-fi-sounds  (kenney.nl)
+  Not used in play (too distracting); kept on the UNUSED lab tab.
+
+Impact / punch (sample-impact-*.ogg, punch-hit.ogg, kick-hit.ogg)
+  Source: "10 Impact/Shield Blocks" by StarNinjas on OpenGameArt
+  License: CC0
+  https://opengameart.org/content/10-impactshield-blocks
+
+Hit (sample-hit-a.mp3, sample-hit-b.mp3)
+  Source: "Attack miss or hit sounds(2)" by pauliuw on OpenGameArt
+  License: CC0
+  https://opengameart.org/content/attack-miss-or-hit-sounds2
+
+Cartoon / Mixkit punch previews (sample-punch-*.mp3, sample-cartoon-*.mp3)
+  Source: Mixkit free sound effects (preview downloads)
+  License: Mixkit Sound Effects Free License
+  https://mixkit.co/free-sound-effects/
+
+Production cues without a file still use the Web Audio synth in src/audio.js.
+Pools (splash / punch / kick) are listed in game.json audio.sfxPools.

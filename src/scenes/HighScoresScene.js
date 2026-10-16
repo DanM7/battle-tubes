@@ -3,6 +3,7 @@ import { WIDTH, HEIGHT, DIFFICULTIES, LADDER_ORDER } from '../config.js';
 import { highScores, formatScore } from '../score.js';
 import { addCloseButton, addMenuButton } from './ui.js';
 import { addText } from '../pixelFont.js';
+import { ensureMenuMusic } from '../audio.js';
 
 const COLUMN_W = 380;
 const HEADER_Y = 112;
@@ -18,6 +19,7 @@ export class HighScoresScene extends Phaser.Scene {
   }
 
   create() {
+    ensureMenuMusic();
     const bg = this.add.graphics();
     bg.fillGradientStyle(0x5fb8f5, 0x5fb8f5, 0x1d5f99, 0x1d5f99, 1);
     bg.fillRect(0, 0, WIDTH, HEIGHT);

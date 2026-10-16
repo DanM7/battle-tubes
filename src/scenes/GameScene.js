@@ -22,6 +22,7 @@ import { TubeRider, preloadRiderAnim, ATTACK_ANIM } from '../riderArt.js';
 import { artColors } from '../riderColors.js';
 import { tubeTextures, tubeTexturesSoon, warmTubes, bakeTubes, TEXELS_PER_UNIT } from '../tubeArt.js';
 import { addText } from '../pixelFont.js';
+import { playSfx, playSfxPool, ensureBattleMusic, syncMusicToBoatTier } from '../audio.js';
 
 const NEUTRAL = { left: false, right: false, duck: false, high: false, mid: false, low: false };
 const NO_ATTACKS = { high: false, mid: false, low: false };
@@ -130,6 +131,7 @@ export class GameScene extends Phaser.Scene {
     this.tubeRiders = this.riders.map((r, i) => new TubeRider(this, this.art[i].anim).setColors(this.art[i].colors ?? artColors(r)).setDepth(RIDER_DEPTH));
     // A knocked-off rider's picture, flying off their tube.
     this.fallers = this.riders.map(() => this.add.image(0, 0, '__DEFAULT').setDepth(RIDER_DEPTH).setVisible(false));
+    this.splashHeard = [false, false];
     this.squash = this.riders.map(() => ({ amount: 0, speed: 0 }));
     this.prepareTubes();
     this.touching = false;
@@ -162,6 +164,7 @@ export class GameScene extends Phaser.Scene {
       if (this.phase !== 'matchOver' && this.phase !== 'leaving') togglePause();
     });
 
+    this.musicTier = null;
     this.startRound();
   }
 
@@ -223,8 +226,11 @@ export class GameScene extends Phaser.Scene {
     this.pickups.reset();
     this.cameraZ = 0;
     this.distance = 0;
+    this.splashHeard = [false, false];
     this.riders.forEach((r) => r.reset());
     this.controllers.forEach((c) => c.reset?.());
+    this.musicTier = this.boat.tier;
+    ensureBattleMusic(this.boat.tier);
     this.setPhase('countdown', MATCH.countdown);
     this.clearTaunts();
     this.taunts = this.riders
@@ -270,6 +276,10 @@ export class GameScene extends Phaser.Scene {
     const dt = Math.min(deltaMs / 1000, 1 / 30);
     this.clock += dt;
     if (this.phase === 'fight') this.boat.update(dt);
+    if (this.boat.tier !== this.musicTier) {
+      this.musicTier = this.boat.tier;
+      syncMusicToBoatTier(this.boat.tier);
+    }
     const speed = this.boat.speed;
     this.distance += speed * dt;
     this.cameraZ = this.distance % this.river.length;
@@ -296,6 +306,7 @@ export class GameScene extends Phaser.Scene {
 
     if (this.phase === 'fight') this.resolveCombat();
     for (const { rider, amount } of this.pickups.update(dt, this.distance, this.riders, this.phase === 'fight')) {
+      playSfx('pickup');
       this.floatText(rider, `+${amount} BALANCE & AIR`, '#7dff7d');
       if (rider === this.riders[0]) this.addPoints(amount * SCORE.kitPerPoint);
     }
@@ -318,6 +329,8 @@ export class GameScene extends Phaser.Scene {
       const [message, color, shake] = RESULT_FEEDBACK[result];
       this.floatText(defender, message, color);
       if (shake) this.cameras.main.shake(90, shake);
+      if (result === 'high') playSfxPool('punch');
+      else if (result === 'mid' || result === 'low' || result === 'looseGrip') playSfxPool('kick');
       if (attacker === this.riders[0] && SCORE.hit[result]) this.addPoints(SCORE.hit[result]);
       if (defender === this.riders[0] && (result === 'duck' || result === 'dodge')) this.addPoints(SCORE[result]);
     }
@@ -530,7 +543,16 @@ export class GameScene extends Phaser.Scene {
     const t = r.isOff && this.ridersShown[i] ? this.clock - r.off.time : null;
     faller.setVisible(t !== null && t < FALL.seconds);
     if (t === null) return;
-    if (t >= FALL.seconds) return drawSplash(g, r, p, t - FALL.seconds, this.artScale);
+    if (t >= FALL.seconds) {
+      if (!this.splashHeard[i]) {
+        this.splashHeard[i] = true;
+        // Layered knock-in (volumes per cue in game.json). Play by id so a missing
+        // sfxLayers entry cannot silence the splash.
+        playSfx('rider-splash');
+        playSfx('sample-splash-08');
+      }
+      return drawSplash(g, r, p, t - FALL.seconds, this.artScale);
+    }
     const k = t / FALL.seconds;
     const { rider } = this.tubeRiders[i];
     const seatY = p.y + tube.seat.y * (scale / TEXELS_PER_UNIT);

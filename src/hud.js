@@ -117,7 +117,7 @@ export class Hud {
       }
     });
 
-    // The turn banner and speed gauge are Debug Mode only.
+    // The turn banner and speed gauge are Turn Info only (settings.debug).
     if (settings.debug) this.drawSpeed(boat, time);
     else this.speed.setText('');
     if (!settings.debug || !bend) {
