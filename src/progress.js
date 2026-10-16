@@ -24,6 +24,9 @@ function save() {
 
 export const hasBeaten = (difficulty, opponentKey) => progress.beaten[difficulty].includes(opponentKey);
 
+// Hard mode unlocks after any Easy ladder win.
+export const hasUnlockedHard = () => progress.beaten.easy.length > 0;
+
 // Returns true if this is the first time.
 export function recordWin(difficulty, opponentKey) {
   if (hasBeaten(difficulty, opponentKey)) return false;

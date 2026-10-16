@@ -429,22 +429,23 @@ export const CUSTOM = {
 // Entering this on the Password screen unlocks every rider on the select screen in every
 // mode, as if you'd entered each one's own password. Secret riders (characters.js) still
 // need their own.
-export const UNLOCK_ALL_PASSWORD = 'CROM';
+// Sealed (passwords.js); type CROM on the Password screen.
+export const UNLOCK_ALL_PASSWORD = '4PCLNKWZ48';
 
 // Cheats, keyed by their settings.js flag. Entering the password on the Password screen
 // unlocks the cheat's switch in the in-game Settings panel and turns it on.
-//   password: what to type (letters only)
+//   password: sealed form of what to type (passwords.js); letters only when typed
 //   name:     shown when it's entered ("INVINCIBILITY UNLOCKED!")
 //   title, description: its row in the Settings panel
 export const CHEATS = {
   invincible: {
-    password: 'GETLOW',
+    password: 'B7STTSVQG5RCX2', // GETLOW
     name: 'Invincibility',
     title: 'INVINCIBLE',
     description: "Hits and the shore\ncan't knock you off",
   },
   giant: {
-    password: 'EUGE',
+    password: '67GCDKMZLQ', // EUGE
     name: 'Giant mode',
     title: 'GIANT',
     description: 'You ride at double\nyour height',

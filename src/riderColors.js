@@ -33,9 +33,14 @@ export function riderTexture(scene, anim, colors = DAN_COLORS) {
   if (scene.textures.exists(key)) return key;
 
   const swaps = new Map();
+  // Trunks shades also cover near-matches: Dan's orange outline pixels sit a little off
+  // the palette, and without this they stay orange after a recolor.
+  const near = [];
   for (const part of parts) {
     const from = meta.palette[part].map((hex) => parseInt(hex.slice(1), 16));
-    shades(from, BASE_SHADE[part], c[part], c[`${part}Shading`]).forEach((to, i) => swaps.set(from[i], to));
+    const to = shades(from, BASE_SHADE[part], c[part], c[`${part}Shading`]);
+    to.forEach((color, i) => swaps.set(from[i], color));
+    if (part === 'trunks') from.forEach((color, i) => near.push({ from: color, to: to[i] }));
   }
   const source = scene.textures.get(`${anim.key}-strip`).getSourceImage();
   const canvas = document.createElement('canvas');
@@ -47,7 +52,9 @@ export function riderTexture(scene, anim, colors = DAN_COLORS) {
   const px = image.data;
   for (let i = 0; i < px.length; i += 4) {
     if (!px[i + 3]) continue;
-    const to = swaps.get((px[i] << 16) | (px[i + 1] << 8) | px[i + 2]);
+    const color = (px[i] << 16) | (px[i + 1] << 8) | px[i + 2];
+    let to = swaps.get(color);
+    if (to === undefined && near.length) to = nearestTrunks(near, px[i], px[i + 1], px[i + 2]);
     if (to === undefined) continue;
     px[i] = to >> 16;
     px[i + 1] = (to >> 8) & 255;
@@ -60,6 +67,24 @@ export function riderTexture(scene, anim, colors = DAN_COLORS) {
 }
 
 const middleShade = (meta, part) => parseInt(meta.palette[part][BASE_SHADE[part]].slice(1), 16);
+
+// How close a pixel can be to a trunks palette color and still recolor with it (squared RGB).
+const TRUNKS_NEAR = 55 * 55;
+function nearestTrunks(near, r, g, b) {
+  let best;
+  let bestD = TRUNKS_NEAR;
+  for (const { from, to } of near) {
+    const dr = r - ((from >> 16) & 255);
+    const dg = g - ((from >> 8) & 255);
+    const db = b - (from & 255);
+    const d = dr * dr + dg * dg + db * db;
+    if (d < bestD) {
+      bestD = d;
+      best = to;
+    }
+  }
+  return best;
+}
 
 // A character's colors from characters.js (flat, as a match draws them) for the pictures:
 // as far from Dan's middle shades as they are from Dan's own flat colors there, in hue,

@@ -267,17 +267,30 @@ function drawDecor(g, { seg, p, w }) {
   }
 }
 
-// Each sits on the ground at (x, y), built from rectangles and triangles: rounder shapes
-// are cut into triangles on the CPU every frame, which is slow with hundreds of them.
+// An ellipse as a fan of triangles, with more sides the bigger it is on screen. Phaser's
+// own ellipses and circles are cut into triangles on the CPU every frame, which is slow
+// with hundreds of them.
+const BLOB_SIDES = { min: 10, max: 24, px: 1.5 }; // a side per this many pixels of radius
+const unitCircles = new Map(); // sides -> [cos, sin, cos, sin, ...] around the circle
+function blob(g, x, y, rx, ry) {
+  const sides = Math.max(BLOB_SIDES.min, Math.min(BLOB_SIDES.max, Math.round(Math.max(rx, ry) / BLOB_SIDES.px)));
+  if (!unitCircles.has(sides)) {
+    unitCircles.set(sides, Array.from({ length: sides + 1 }, (_, i) => [Math.cos((i / sides) * Math.PI * 2), Math.sin((i / sides) * Math.PI * 2)]).flat());
+  }
+  const unit = unitCircles.get(sides);
+  for (let i = 0; i < sides * 2; i += 2) {
+    g.fillTriangle(x, y, x + unit[i] * rx, y + unit[i + 1] * ry, x + unit[i + 2] * rx, y + unit[i + 3] * ry);
+  }
+}
+
+// Each sits on the ground at (x, y).
 function drawRock(g, x, y, size) {
   g.fillStyle(COLORS.rockDark);
-  g.fillRect(x - size * 0.62, y - size * 0.4, size * 1.24, size * 0.4);
-  g.fillRect(x - size * 0.45, y - size * 0.62, size * 0.9, size * 0.25);
+  blob(g, x, y - size * 0.3, size * 0.62, size * 0.4);
   g.fillStyle(COLORS.rock);
-  g.fillRect(x - size * 0.52, y - size * 0.45, size * 1.04, size * 0.3);
-  g.fillRect(x - size * 0.36, y - size * 0.6, size * 0.72, size * 0.2);
+  blob(g, x, y - size * 0.4, size * 0.52, size * 0.31);
   g.fillStyle(COLORS.rockLight);
-  g.fillRect(x - size * 0.3, y - size * 0.56, size * 0.3, size * 0.1);
+  blob(g, x - size * 0.2, y - size * 0.52, size * 0.22, size * 0.11);
 }
 
 function drawTuft(g, x, y, h, flower) {
@@ -289,18 +302,18 @@ function drawTuft(g, x, y, h, flower) {
   g.fillTriangle(x - h * 0.06, y - h * 0.5, x + h * 0.06, y - h * 0.5, x, y - h);
   if (!flower) return;
   g.fillStyle(flower);
-  g.fillRect(x - h * 0.14, y - h * 1.14, h * 0.28, h * 0.28);
+  blob(g, x, y - h, h * 0.16, h * 0.16);
 }
 
 function drawBush(g, x, y, size) {
   g.fillStyle(COLORS.bushDark);
-  g.fillRect(x - size * 0.65, y - size * 0.45, size * 1.3, size * 0.45);
-  g.fillRect(x - size * 0.45, y - size * 0.95, size * 0.9, size * 0.55);
+  blob(g, x, y - size * 0.3, size * 0.65, size * 0.35);
   g.fillStyle(COLORS.bush);
-  g.fillRect(x - size * 0.58, y - size * 0.62, size * 1.16, size * 0.3);
-  g.fillRect(x - size * 0.38, y - size * 0.9, size * 0.76, size * 0.32);
+  blob(g, x - size * 0.3, y - size * 0.42, size * 0.33, size * 0.33);
+  blob(g, x + size * 0.3, y - size * 0.42, size * 0.33, size * 0.33);
+  blob(g, x, y - size * 0.62, size * 0.4, size * 0.4);
   g.fillStyle(COLORS.bushLight);
-  g.fillRect(x - size * 0.26, y - size * 0.84, size * 0.28, size * 0.12);
+  blob(g, x - size * 0.12, y - size * 0.8, size * 0.16, size * 0.16);
 }
 
 // Trapezoid between the horizontal spans x1±w1 at y1 and x2±w2 at y2.

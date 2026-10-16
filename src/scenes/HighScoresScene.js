@@ -8,7 +8,8 @@ const COLUMN_W = 380;
 const HEADER_Y = 112;
 const FIRST_ROW_Y = 160;
 const ROW_STEP = 56;
-const SCORING_BUTTON = { y: 490, w: 400, h: 52, textScale: 3 };
+// Same footprint as the main menu buttons; small type so the long label fits inside.
+const SCORING_BUTTON = { y: 490, w: 320, h: 52, textScale: 2, font: 'small' };
 
 // Each mode's best 1 Player runs (score.js), side by side, and a way to the scoring rules.
 export class HighScoresScene extends Phaser.Scene {

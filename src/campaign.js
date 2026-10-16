@@ -4,6 +4,7 @@ import { hasBeaten, hasPasswordUnlock } from './progress.js';
 import { newCustomRider, customName } from './customRiders.js';
 import { matchColor, artColors } from './riderColors.js';
 import { attackAnim, buildAnim, characterLook, ART_SCALE } from './riderArt.js';
+import { passwordMatches } from './passwords.js';
 
 // A 1-player run up the ladder, in LADDER_ORDER.
 //   difficulty:   a DIFFICULTIES key
@@ -53,9 +54,9 @@ export const isUnlocked = (difficulty, c) =>
   hasPasswordUnlock(c.id) ||
   (Boolean(c.unlock.beat) && unlockModes(difficulty, c).every((mode) => hasBeaten(mode, character(c.unlock.beat).nickname)));
 
-// The CHARACTERS entry whose unlock password this is, if any.
+// The CHARACTERS entry whose sealed unlock password matches what was typed, if any.
 export const characterForPassword = (password) =>
-  CHARACTERS.find((c) => c.unlock?.password && c.unlock.password.toUpperCase() === password.toUpperCase());
+  CHARACTERS.find((c) => c.unlock?.password && passwordMatches(password, c.unlock.password));
 
 // "Beat Billy in 1999 to unlock", or one line per mode, finished ones first and marked:
 // "Beat B-Nap in 2010 (done)\nand Adam in 1999 to unlock"

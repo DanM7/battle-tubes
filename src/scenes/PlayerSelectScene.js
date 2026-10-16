@@ -2,8 +2,7 @@ import Phaser from 'phaser';
 import { WIDTH, HEIGHT, DIFFICULTIES, MAX_GRIP, CUSTOM } from '../config.js';
 import { CHARACTERS } from '../characters.js';
 import { Rider } from '../rider.js';
-import { drawRider } from '../draw.js';
-import { newCampaign, riderOptions, customRiderOptions, isUnlocked, unlockText, displayName, spriteKey } from '../campaign.js';
+import { newCampaign, riderOptions, customRiderOptions, isUnlocked, unlockText, displayName, spriteKey, characterArt } from '../campaign.js';
 import { customRider, customRiderCount, customName, newCustomRider, saveCustomRider, deleteCustomRider } from '../customRiders.js';
 import { enduranceRating, pointsLeft } from '../build.js';
 import {
@@ -12,6 +11,7 @@ import {
   loadRiderAnim,
   isRiderAnimLoaded,
   buildAnim,
+  attackAnim,
   genderBuilds,
   hairStyleLabel,
   BUILDS,
@@ -20,11 +20,10 @@ import {
   ART_SCALE,
   ATTACK_ANIM,
 } from '../riderArt.js';
-import { SKIN_TONES, HAIR_COLORS, TRUNKS_COLORS } from '../riderColors.js';
+import { SKIN_TONES, HAIR_COLORS, TRUNKS_COLORS, riderTexture } from '../riderColors.js';
 import { tubeTextures, TEXELS_PER_UNIT, TUBE_WIDTH } from '../tubeArt.js';
 import { addBackButton, preloadBackground, addBackground, addColorPicker } from './ui.js';
 import { addText, fontToFit } from '../pixelFont.js';
-import { IS_MOBILE } from '../device.js';
 
 const TITLE_X = 440; // centered between the back button and the year
 const GRID_AREA = { x: 36, y: 82, w: 400, h: 350 }; // the grid sizes itself to fit in here
@@ -39,7 +38,6 @@ const ARROW = { minW: 30, chevronW: 12, chevronH: 30, fill: 0x245a9c, hover: 0x2
 const ARROW_OFF_ALPHA = 0.35; // nothing more that way
 // At MAX_CELL; everything inside a cell scales with it.
 const NAME_STRIP = 22;
-const PORTRAIT_SCALE = 0.37;
 const PANEL = { x: 452, y: 82, w: 476, h: 418 };
 const PANEL_ALPHA = 0.92; // nearly solid, so faded locked riders stand out from the background
 const PANEL_CENTER_X = PANEL.x + PANEL.w / 2;
@@ -51,14 +49,14 @@ const LABEL_ABOVE = 24; // a stat's label sits this far above its row
 // A custom rider's tabs, under the name box, and the panel rows the keyboard moves through
 // on each.
 const TABS = [
+  { id: 'body', label: 'BODY', rows: ['gender', 'build'] },
   { id: 'stats', label: 'STATS', rows: ['height', 'grip'] },
   { id: 'skin', label: 'SKIN', rows: ['color', 'shading'] },
-  { id: 'hair', label: 'HAIR', rows: ['color', 'shading'] },
-  { id: 'style', label: 'STYLE', rows: ['hairStyle'] },
+  { id: 'hair', label: 'HAIR', rows: ['color', 'shading', 'hairStyle'] },
   { id: 'trunks', label: 'SUIT', rows: ['color', 'shading'] },
-  { id: 'body', label: 'BODY', rows: ['gender', 'build'] },
+  { id: 'face', label: 'FACE', rows: [] }, // placeholder until face art ships
 ];
-const TAB = { y: NAME_Y + 44, w: 72, h: 28, gap: 5, fill: 0x1d4e89, hover: 0x2a6bb8, chosen: 0x2f7d32 };
+const TAB = { y: NAME_Y + 44, w: 68, h: 28, gap: 4, fill: 0x1d4e89, hover: 0x2a6bb8, chosen: 0x2f7d32 };
 const TABS_W = TABS.length * (TAB.w + TAB.gap) - TAB.gap;
 const TABS_LEFT = PANEL.x + (PANEL.w - TABS_W) / 2;
 // Where the stat rows are centered: a custom rider's on the STATS tab, with build points
@@ -71,7 +69,8 @@ const POINTS_Y = 356;
 const STEP_BUTTON = 32;
 const STEPPER_W = 224; // [-] value [+]
 const STEPPER_MID = STATS_X + STEPPER_W / 2;
-const DELETE_Y = 462;
+// SAVE and DELETE sit on the bottom of the custom panel; the preview sits above them.
+const BUTTON_ROW = { y: 470, w: 140, h: 36, gap: 20 };
 const GRIP_COLOR = 0x7dff7d;
 const ENDURANCE_COLOR = 0xff9f43;
 // The SKIN, HAIR and TRUNKS tabs: swatches (picture colors) in rows of `cols`, then a
@@ -81,19 +80,22 @@ const COLOR_GRID = { y: 200, size: 32, gap: 10, cols: 5 };
 const COLOR_GRID_LEFT = STEPPER_MID - (COLOR_GRID.cols * (COLOR_GRID.size + COLOR_GRID.gap) - COLOR_GRID.gap) / 2;
 const PICKER = { y: 290, w: 200, h: 32 };
 const SHADING = { y: 350, step: 0.1, min: 0.3, max: 2 };
-// The STYLE and BODY tabs: steppers through a list (for the look so far), for that look key.
+// BODY and HAIR (under shading): steppers through a list for that look key.
 const CHOICES = {
-  hairStyle: { tab: 'style', label: 'HAIR STYLE', y: 206, list: (look) => HAIR_STYLES[look.gender] },
+  hairStyle: { tab: 'hair', label: 'HAIR STYLE', y: 400, list: (look) => HAIR_STYLES[look.gender] },
   gender: { tab: 'body', label: 'GENDER', y: 206, list: () => GENDERS },
   build: { tab: 'body', label: 'BUILD', y: 270, list: (look) => genderBuilds(look.gender) },
 };
+// FACE tab placeholder (disabled until face art ships).
+const FACE = { typeY: 220, glassesY: 300, box: 28 };
 const PREVIEW = { x: 562, s: 0.95 };
 const PLAYER_TUBE = 'green'; // the player's tube in a match (the opponent's is blue)
-const PREVIEW_Y = { custom: 462, preset: 426 }; // where the preview tube sits on the water
+// Custom preview sits higher so SAVE/DELETE fit under it; presets keep the lower waterline.
+const PREVIEW_Y = { custom: 390, preset: 400 };
 const ART_TEXEL = 1.3; // how big a custom rider's picture is drawn
-const FEET_Y = 452; // a CHARACTERS entry's sprite stands on this line...
+const FEET_Y = 420; // a CHARACTERS entry's sprite stands on this line...
 const SPRITE_PX_PER_INCH = 3.9; // ...this tall per inch of their height
-const UNLOCK = { x: PANEL.x + 28, y: 476 }; // the lock, then "Beat ... to unlock" after it
+const UNLOCK = { x: PANEL.x + 28, y: BUTTON_ROW.y }; // the lock, then "Beat ... to unlock" after it
 const HEAD_CROP = 0.3; // a grid spot shows a square this fraction of the sprite's height, from its top
 const HIGHLIGHT = 0xffdd55;
 const LOCKED_ALPHA = 0.3;
@@ -178,8 +180,13 @@ export class PlayerSelectScene extends Phaser.Scene {
   preload() {
     preloadBackground(this);
     for (const c of CHARACTERS) {
-      const key = this.spriteOf(c);
+      const key = spriteKey(c, this.difficulty);
       if (key && !this.textures.exists(key)) this.load.image(key, c.sprites[this.difficulty]);
+      // Hard (and anyone without a standing picture) uses their attack frames for the grid.
+      else if (!key) {
+        const anim = attackAnim(c, this.difficulty);
+        if (!isRiderAnimLoaded(this, anim)) preloadRiderAnim(this, anim);
+      }
     }
     const saved = Array.from({ length: customRiderCount(this.difficulty) }, (_, i) => customRider(this.difficulty, i).look);
     const anims = [...BUILDS.map((build) => buildAnim(build)), ...saved.map(({ build, hairStyle, gender }) => buildAnim(build, hairStyle, gender))];
@@ -220,11 +227,11 @@ export class PlayerSelectScene extends Phaser.Scene {
     this.scrollToSlot();
     this.makePanel();
     this.makeReadyButton();
-    this.hint = addText(this, WIDTH / 2, HEIGHT - 20, '', { scale: 2, color: '#e8f6ff' }).setOrigin(0.5);
 
     this.input.keyboard.on('keydown', (e) => this.onKey(e.code));
     // Phaser keeps the browser from moving focus off the name box when the canvas is clicked.
     this.input.on('pointerdown', () => this.nameInput.node.blur());
+    this.beginEdit();
     this.syncNameInput();
     this.refresh();
   }
@@ -234,7 +241,7 @@ export class PlayerSelectScene extends Phaser.Scene {
   }
 
   get isCustom() {
-    return this.slot.custom !== undefined;
+    return this.slot?.custom !== undefined;
   }
 
   // A saved custom rider (rather than the +).
@@ -261,18 +268,103 @@ export class PlayerSelectScene extends Phaser.Scene {
   }
 
   // The texture key of CHARACTERS entry `c`'s sprite in this mode, or null if they're drawn.
+  // Standing picture when they have one; otherwise a hold-frame portrait from their
+  // attack strip.
   spriteOf(c) {
+    if (!c) return null;
+    return spriteKey(c, this.difficulty) ?? this.ensurePortrait(c);
+  }
+
+  standingSprite(c) {
     return spriteKey(c, this.difficulty);
   }
 
+  // Crops the hold frame of `c`'s attack strip into a texture, once.
+  ensurePortrait(c) {
+    const key = `rider-portrait-${this.difficulty}-${c.id}`;
+    if (this.textures.exists(key)) return key;
+    const anim = attackAnim(c, this.difficulty);
+    if (!isRiderAnimLoaded(this, anim)) return null;
+    const meta = this.cache.json.get(`${anim.key}-meta`);
+    const source = this.textures.get(`${anim.key}-strip`).getSourceImage();
+    const canvas = document.createElement('canvas');
+    canvas.width = meta.frameWidth;
+    canvas.height = meta.frameHeight;
+    canvas.getContext('2d').drawImage(source, 0, 0, meta.frameWidth, meta.frameHeight, 0, 0, meta.frameWidth, meta.frameHeight);
+    this.textures.addCanvas(key, canvas);
+    return key;
+  }
+
+  // Dan's (or a girl's) hold frame in a custom rider's skin/hair/trunks colors, for the
+  // grid headshot. Loads the anim on first need.
+  ensureCustomPortrait(look) {
+    const anim = buildAnim(look.build, look.hairStyle, look.gender);
+    if (!isRiderAnimLoaded(this, anim)) {
+      loadRiderAnim(this, anim, () => {
+        if (!this.scene.isActive()) return;
+        this.buildCells();
+        this.refresh();
+      });
+      return null;
+    }
+    const sheet = riderTexture(this, anim, look);
+    const key = `custom-portrait:${sheet}`;
+    if (this.textures.exists(key)) return key;
+    const meta = this.cache.json.get(`${anim.key}-meta`);
+    const source = this.textures.get(sheet).getSourceImage();
+    const canvas = document.createElement('canvas');
+    canvas.width = meta.frameWidth;
+    canvas.height = meta.frameHeight;
+    canvas.getContext('2d').drawImage(source, 0, 0, meta.frameWidth, meta.frameHeight, 0, 0, meta.frameWidth, meta.frameHeight);
+    this.textures.addCanvas(key, canvas);
+    return key;
+  }
+
+  // The custom rider being edited: the + draft, the working copy of a saved one, or the
+  // stored rider when that slot isn't the one on screen. Safe during rebuild()'s preview
+  // pass, when this.cell may not point at a slot yet.
   customOf(index) {
+    const s = this.slots?.[this.cell];
+    if (s && s.custom === index) {
+      if (s.plus) return this.draft;
+      if (this.edit) return this.edit;
+    }
     return customRider(this.difficulty, index) ?? this.draft;
+  }
+
+  // True when the on-screen custom rider differs from its last saved (or blank +) state.
+  get isDirty() {
+    if (!this.isCustom) return false;
+    return JSON.stringify(this.customOf(this.slot.custom)) !== this.clean;
+  }
+
+  snapshotCustom(rider) {
+    return JSON.stringify(rider);
+  }
+
+  // Loads a working copy for the highlighted custom slot. The + draft is dirty against a
+  // blank new rider (so returning to an edited + still shows SAVE); a saved slot gets a
+  // fresh copy from storage (unsaved edits are dropped when you leave it).
+  beginEdit() {
+    if (!this.isCustom) {
+      this.edit = null;
+      this.clean = '';
+      return;
+    }
+    if (this.slot.plus) {
+      this.edit = null;
+      this.clean = this.snapshotCustom(newCustomRider(this.difficulty, this.slot.custom));
+      return;
+    }
+    const saved = customRider(this.difficulty, this.slot.custom);
+    this.edit = { ...saved, look: { ...saved.look } };
+    this.clean = this.snapshotCustom(this.edit);
   }
 
   // Remakes the slots after custom riders are added or deleted.
   rebuild() {
     const count = customRiderCount(this.difficulty);
-    // What the + shows until you change something (which saves it as a new rider).
+    // What the + shows until SAVE writes it as a new rider.
     this.draft = newCustomRider(this.difficulty, count);
     const top = [
       ...this.secrets.map((c) => ({ c })),
@@ -288,8 +380,8 @@ export class PlayerSelectScene extends Phaser.Scene {
       }),
     ];
     this.topCount = top.length;
-    this.previews = this.slots.map((_, i) => this.makePreview(i));
     this.cell = Math.min(this.cell ?? 0, this.slots.length - 1);
+    this.previews = this.slots.map((_, i) => this.makePreview(i));
     this.buildCells();
   }
 
@@ -384,7 +476,8 @@ export class PlayerSelectScene extends Phaser.Scene {
       g.fillRect(left, top + cell - strip, cell, strip);
       g.lineStyle(2, 0xffffff, 0.7);
       g.strokeRect(left, top, cell, cell);
-      if (this.spriteOf(s.c)) this.cellObjects.push(this.addHeadshot(s));
+      const head = s.c ? this.spriteOf(s.c) : s.custom !== undefined && !s.plus ? this.ensureCustomPortrait(this.customOf(s.custom).look) : null;
+      if (head) this.cellObjects.push(this.addHeadshot(s, head));
       if (locked) drawLock(locks, left + cell - 20 * k, top + 14 * k, 26 * k);
       if (s.mystery) {
         const mark = addText(this, s.x, s.y - strip / 2, '?', { scale: Math.max(2, Math.round(6 * k)), color: '#9aa3b2' });
@@ -430,9 +523,9 @@ export class PlayerSelectScene extends Phaser.Scene {
   }
 
   // The top middle of a rider's sprite (head and shoulders), filling the spot above the name.
-  addHeadshot(s) {
+  addHeadshot(s, textureKey) {
     const { cell, k } = this.grid;
-    const image = this.add.image(s.x, s.y - cell / 2, this.spriteOf(s.c)).setOrigin(0.5, 0).setDepth(2);
+    const image = this.add.image(s.x, s.y - cell / 2, textureKey).setOrigin(0.5, 0).setDepth(2);
     const side = Math.min(image.height * HEAD_CROP, image.width);
     image.setCrop((image.width - side) / 2, 0, side, side);
     image.setScale((cell - NAME_STRIP * k) / side);
@@ -444,12 +537,9 @@ export class PlayerSelectScene extends Phaser.Scene {
     this.portraits.clear();
     this.lockedPortraits.clear();
     this.plusG.clear();
-    const { cell, k } = this.grid;
-    this.slots.forEach((s, i) => {
+    this.slots.forEach((s) => {
       if (!s.shown || s.mystery || this.spriteOf(s.c)) return;
-      if (s.plus) return this.drawPlus(s);
-      const g = this.isLocked(s) ? this.lockedPortraits : this.portraits;
-      drawRider(g, this.previews[i], { x: s.x, y: s.y + cell / 2 - (NAME_STRIP + 5) * k, s: PORTRAIT_SCALE * k }, 0);
+      if (s.plus) this.drawPlus(s);
     });
   }
 
@@ -488,7 +578,9 @@ export class PlayerSelectScene extends Phaser.Scene {
     this.gripG = this.add.graphics();
     this.enduranceG = this.add.graphics();
     const styleWrap = PANEL.x + PANEL.w - STATS_X - 12;
-    this.styleText = addText(this, STATS_X, 0, '', { scale: 1, color: '#e8f6ff', wrap: styleWrap, font: 'small' });
+    // Normal body text (not the small font used on tight labels) — custom-editor work
+    // had briefly shrunk this to scale 1 / font small.
+    this.styleText = addText(this, STATS_X, 0, '', { scale: 2, color: '#e8f6ff', wrap: styleWrap });
     this.pointsLabel = addText(this, STEPPER_MID, POINTS_Y, 'BUILD POINTS LEFT', { scale: 1, color: '#ffdd55', font: 'small' }).setOrigin(0.5);
     this.pointsText = addText(this, STEPPER_MID, POINTS_Y + 20, '', { scale: 2 }).setOrigin(0.5);
 
@@ -502,6 +594,7 @@ export class PlayerSelectScene extends Phaser.Scene {
     ]);
     this.makeTabs();
     this.makeColorTabs();
+    this.makeFaceTab();
     this.choices = Object.fromEntries(
       Object.entries(CHOICES).map(([key, { label, y }]) => [
         key,
@@ -509,24 +602,25 @@ export class PlayerSelectScene extends Phaser.Scene {
       ]),
     );
 
-    this.deleteButton = this.add
-      .rectangle(STEPPER_MID, DELETE_Y, 150, 34, 0x9b2226)
+    const saveX = PANEL_CENTER_X - BUTTON_ROW.w / 2 - BUTTON_ROW.gap / 2;
+    const deleteX = PANEL_CENTER_X + BUTTON_ROW.w / 2 + BUTTON_ROW.gap / 2;
+    this.saveButton = this.add
+      .rectangle(saveX, BUTTON_ROW.y, BUTTON_ROW.w, BUTTON_ROW.h, 0x2f7d32)
       .setStrokeStyle(2, 0xffffff)
       .setInteractive({ useHandCursor: true });
-    this.deleteText = addText(this, STEPPER_MID, DELETE_Y, '', { scale: 1 }).setOrigin(0.5);
+    this.saveLabel = addText(this, saveX, BUTTON_ROW.y, 'SAVE', { scale: 2 }).setOrigin(0.5);
+    this.saveButton.on('pointerover', () => this.isDirty && this.saveButton.setFillStyle(0x3e9e42));
+    this.saveButton.on('pointerout', () => this.saveButton.setFillStyle(0x2f7d32));
+    this.saveButton.on('pointerdown', () => this.pressSave());
+
+    this.deleteButton = this.add
+      .rectangle(deleteX, BUTTON_ROW.y, BUTTON_ROW.w, BUTTON_ROW.h, 0x9b2226)
+      .setStrokeStyle(2, 0xffffff)
+      .setInteractive({ useHandCursor: true });
+    this.deleteText = addText(this, deleteX, BUTTON_ROW.y, 'DELETE', { scale: 2 }).setOrigin(0.5);
     this.deleteButton.on('pointerover', () => this.deleteButton.setFillStyle(0xbf2a30));
     this.deleteButton.on('pointerout', () => this.deleteButton.setFillStyle(0x9b2226));
     this.deleteButton.on('pointerdown', () => this.pressDelete());
-
-    // In the same spot, for the new rider on the +: saves it, once it has a name.
-    this.addButton = this.add
-      .rectangle(STEPPER_MID, DELETE_Y, 150, 34, 0x2f7d32)
-      .setStrokeStyle(2, 0xffffff)
-      .setInteractive({ useHandCursor: true });
-    this.addLabel = addText(this, STEPPER_MID, DELETE_Y, 'ADD', { scale: 1 }).setOrigin(0.5);
-    this.addButton.on('pointerover', () => this.addButton.setFillStyle(0x3e9e42));
-    this.addButton.on('pointerout', () => this.addButton.setFillStyle(0x2f7d32));
-    this.addButton.on('pointerdown', () => this.pressAdd());
 
     this.lockG = this.add.graphics();
     drawLock(this.lockG, UNLOCK.x, UNLOCK.y - 3, 30);
@@ -577,6 +671,19 @@ export class PlayerSelectScene extends Phaser.Scene {
     });
     this.shadingLabel = addText(this, STATS_X, SHADING.y - LABEL_ABOVE, 'SHADING', { scale: 1, color: '#ffdd55' }).setOrigin(0, 0.5);
     this.shadingText = addText(this, STEPPER_MID, SHADING.y, '', { scale: 2 }).setOrigin(0.5);
+  }
+
+  // FACE tab: face type and glasses, grayed out until that art ships.
+  makeFaceTab() {
+    const dim = '#9aa3b2';
+    this.faceObjects = [
+      addText(this, STATS_X, FACE.typeY - LABEL_ABOVE, 'FACE TYPE', { scale: 1, color: dim }).setOrigin(0, 0.5),
+      addText(this, STEPPER_MID, FACE.typeY, 'CLASSIC', { scale: 2, color: dim }).setOrigin(0.5),
+      this.add.rectangle(STATS_X + FACE.box / 2, FACE.glassesY, FACE.box, FACE.box, 0x3a3f48).setStrokeStyle(2, 0x6a6e76),
+      addText(this, STATS_X + FACE.box + 12, FACE.glassesY, 'GLASSES', { scale: 2, color: dim }).setOrigin(0, 0.5),
+      addText(this, STEPPER_MID, FACE.glassesY + 50, 'COMING SOON', { scale: 2, color: '#ffdd55' }).setOrigin(0.5),
+    ];
+    this.faceObjects.forEach((o) => o.setVisible(false).setAlpha(0.55));
   }
 
   showTab(id) {
@@ -666,6 +773,7 @@ export class PlayerSelectScene extends Phaser.Scene {
     this.scrollToSlot();
     this.setFocus('grid');
     this.deleteArmed = false;
+    this.beginEdit();
     this.syncNameInput();
     this.refresh();
   }
@@ -710,7 +818,7 @@ export class PlayerSelectScene extends Phaser.Scene {
       else if (code === 'ArrowDown' && r < rows.length - 1) this.setFocus(rows[r + 1]);
       else if (code === 'Backspace') this.setFocus('grid');
       else if (code === 'ArrowLeft' || code === 'ArrowRight') return this.adjust(code === 'ArrowLeft' ? -1 : 1);
-      else if (code === 'Enter' || code === 'Space') return this.slot.plus ? this.pressAdd() : this.confirm();
+      else if (code === 'Enter' || code === 'Space') return this.slot.plus ? this.pressSave() : this.confirm();
       else return;
     }
     this.refresh();
@@ -787,13 +895,14 @@ export class PlayerSelectScene extends Phaser.Scene {
     });
   }
 
-  // Changing anything about a saved custom rider saves it. The new rider on the + is only
-  // saved by ADD (or READY), once it has a name.
+  // Edits stay in the working copy until SAVE. The + draft is the working copy for a new one.
   editCustom(change) {
-    const index = this.slot.custom;
+    this.deleteArmed = false;
     if (this.slot.plus) this.draft = { ...this.draft, ...change };
-    else saveCustomRider(this.difficulty, index, { ...this.customOf(index), ...change });
+    else this.edit = { ...this.edit, ...change };
     this.previews[this.cell] = this.makePreview(this.cell);
+    // Look changes update the Dan-face grid portrait; name-only edits skip the rebuild.
+    if (change.look && this.isSaved) this.buildCells();
     this.refresh();
   }
 
@@ -808,12 +917,19 @@ export class PlayerSelectScene extends Phaser.Scene {
     this.refresh();
   }
 
-  // Saves the new rider on the +, with a new + after it.
-  pressAdd() {
+  // Writes the working copy: a new rider on the +, or updates to a saved one.
+  pressSave() {
+    if (!this.isCustom || !this.isDirty) return;
     if (this.needsName) return this.askForName();
-    saveCustomRider(this.difficulty, this.slot.custom, this.draft);
-    this.rebuild();
-    this.select(this.cell);
+    if (this.slot.plus) {
+      saveCustomRider(this.difficulty, this.slot.custom, this.draft);
+      this.rebuild();
+      this.select(this.cell);
+      return;
+    }
+    saveCustomRider(this.difficulty, this.slot.custom, this.edit);
+    this.clean = this.snapshotCustom(this.edit);
+    this.refresh();
   }
 
   editLook(change) {
@@ -822,6 +938,7 @@ export class PlayerSelectScene extends Phaser.Scene {
 
   // Asks once, deletes on the second press.
   pressDelete() {
+    if (!this.isSaved) return;
     if (!this.deleteArmed) {
       this.deleteArmed = true;
       return this.refresh();
@@ -838,12 +955,13 @@ export class PlayerSelectScene extends Phaser.Scene {
   confirm() {
     if (this.locked) return this.shake();
     if (this.needsName) return this.askForName();
+    if (this.isCustom && this.isDirty) this.pressSave();
+    if (this.needsName) return;
     memory.cell[this.difficulty] = this.cell;
     let player;
     if (this.isCustom) {
       const rider = this.customOf(this.slot.custom);
-      saveCustomRider(this.difficulty, this.slot.custom, rider);
-      player = { custom: { ...rider } };
+      player = { custom: { ...rider, look: { ...rider.look } } };
     } else {
       player = { id: this.slot.c.id };
     }
@@ -897,20 +1015,28 @@ export class PlayerSelectScene extends Phaser.Scene {
     this.pointsText.setVisible(tab === 'stats');
     this.refreshTabs(tab);
     if (custom) this.pointsText.setText(`${pointsLeft(stats)} OF ${CUSTOM.buildPoints}`);
+    const dirty = this.isDirty;
+    const saveAlpha = dirty ? 1 : 0.4;
+    const saveX = this.isSaved
+      ? PANEL_CENTER_X - BUTTON_ROW.w / 2 - BUTTON_ROW.gap / 2
+      : PANEL_CENTER_X;
+    this.saveButton.setVisible(custom).setAlpha(saveAlpha).setX(saveX);
+    this.saveLabel.setVisible(custom).setAlpha(saveAlpha).setX(saveX);
+    if (custom && dirty) this.saveButton.setInteractive({ useHandCursor: true });
+    else this.saveButton.disableInteractive();
     this.deleteButton.setVisible(this.isSaved);
     this.deleteText.setVisible(this.isSaved).setText(this.deleteArmed ? 'SURE?' : 'DELETE');
     const needsName = this.needsName;
     this.nameBox.setStrokeStyle(3, needsName ? HIGHLIGHT : 0xffffff);
-    this.addButton.setVisible(Boolean(s.plus)).setAlpha(needsName ? 0.4 : 1);
-    this.addLabel.setVisible(Boolean(s.plus)).setAlpha(needsName ? 0.4 : 1);
     this.previewG.setAlpha(locked && !s.mystery ? LOCKED_ALPHA : 1);
     this.syncArt();
-    const sprite = this.spriteOf(s.c);
-    this.previewSprite.setVisible(sprite !== null).setAlpha(locked ? LOCKED_ALPHA : 1);
-    if (sprite) {
+    const standing = this.standingSprite(s.c);
+    this.previewSprite.setVisible(standing !== null).setAlpha(locked ? LOCKED_ALPHA : 1);
+    if (standing) {
       const tall = stats.heightIn * SPRITE_PX_PER_INCH;
-      this.previewSprite.setTexture(sprite).setScale(tall / this.previewSprite.height);
+      this.previewSprite.setTexture(standing).setScale(tall / this.previewSprite.height);
     }
+    this.syncPresetArt();
 
     this.lockG.setVisible(locked);
     this.unlockText.setVisible(locked);
@@ -918,15 +1044,6 @@ export class PlayerSelectScene extends Phaser.Scene {
 
     this.ready.setAlpha(locked ? 0.4 : 1);
     this.readyText.setAlpha(locked ? 0.4 : 1);
-
-    const enter = s.plus ? 'Enter: add' : 'Enter: ride!';
-    const keys = {
-      grid: custom ? 'Arrows: choose rider    Enter: select' : 'Arrows: choose rider    Enter: ride!',
-      name: 'Type a name    ↓ next    ↑ back to riders',
-      tabs: `← → choose a tab    ↑ ↓ choose    ${enter}`,
-      color: `← → ${TABS.find((t) => t.id === this.tab).label.toLowerCase()} color    ↑ ↓ choose    ${enter}`,
-    }[this.focus] ?? `← → change    ↑ ↓ choose    ${enter}`;
-    this.hint.setText(IS_MOBILE ? 'Tap + to make your own rider, or pick one, then READY!' : keys);
   }
 
   // The tabs and what's on the shown one; `tab` is null for CHARACTERS.
@@ -958,6 +1075,7 @@ export class PlayerSelectScene extends Phaser.Scene {
       text.setFontSize(2).setText(key === 'hairStyle' ? hairStyleLabel(this.look[key]) : this.look[key].toUpperCase());
       if (text.width > STEPPER_W - 2 * STEP_BUTTON - 8) text.setFontSize(1);
     }
+    for (const o of this.faceObjects) o.setVisible(tab === 'face');
   }
 
   // A custom rider's picture, in its gender, build, hair style and colors. Hair styles'
@@ -972,6 +1090,27 @@ export class PlayerSelectScene extends Phaser.Scene {
       this.art = new TubeRider(this, anim);
     }
     this.art?.setColors(look).setVisible(true);
+  }
+
+  // CHARACTERS without a standing picture: idle in their tube like a custom rider,
+  // using that mode's attack frames.
+  syncPresetArt() {
+    const c = this.slot.c;
+    if (this.isCustom || this.slot.mystery || !c || this.standingSprite(c)) {
+      this.presetArt?.setVisible(false);
+      return;
+    }
+    const { anim, colors } = characterArt(c, this.difficulty);
+    if (!isRiderAnimLoaded(this, anim)) {
+      loadRiderAnim(this, anim, () => this.syncPresetArt());
+      return;
+    }
+    if (this.presetArt?.anim.key !== anim.key) {
+      this.presetArt?.destroy();
+      this.presetArt = new TubeRider(this, anim);
+    }
+    this.presetArt.setColors(colors).setVisible(true);
+    this.presetArt.container.setAlpha(this.locked ? LOCKED_ALPHA : 1);
   }
 
   // A 1-to-5 stat as a row of boxes, `filled` of them lit; centered under the steppers for
@@ -1049,29 +1188,30 @@ export class PlayerSelectScene extends Phaser.Scene {
       h.strokeRoundedRect(box.x, box.y, box.w, box.h, 8);
     }
 
-    // Idle: floating on the water, swaying side to side.
+    // Idle: floating on the water, bobbing gently (no side lean — that dipped a foot
+    // between the tube's layers). Water is a rect (not ellipse): earcut on fillEllipse
+    // every frame locked the page when + NEW / custom riders hit this path.
     const g = this.previewG;
     g.clear();
     this.mysteryTube.forEach((o) => o.setVisible(Boolean(this.slot.mystery)));
-    if (this.spriteOf(this.slot.c)) return;
+    if (this.standingSprite(this.slot.c)) return;
     const waterY = this.isCustom ? PREVIEW_Y.custom : PREVIEW_Y.preset;
     const floatY = waterY + Math.sin(t * 2.3) * 3;
+    const waterW = 212;
+    const waterH = 40;
     g.fillStyle(0x2f7fc1, 1);
-    g.fillEllipse(PREVIEW.x, waterY + 6, 212, 40);
+    g.fillRect(PREVIEW.x - waterW / 2, waterY + 6 - waterH / 2, waterW, waterH);
+    const rippleW = 190 + Math.sin(t * 2.3) * 8;
     g.lineStyle(2, 0xbfe9ff, 0.5 + 0.3 * Math.sin(t * 2.3));
-    g.strokeEllipse(PREVIEW.x, waterY + 6, 190 + Math.sin(t * 2.3) * 8, 30);
+    g.strokeRect(PREVIEW.x - rippleW / 2, waterY + 6 - 15, rippleW, 30);
     if (this.slot.mystery) return this.placeMysteryTube(floatY);
-    if (this.isCustom) {
-      if (!this.art) return;
-      const { hold } = ATTACK_ANIM;
-      const tube = tubeTextures(this, { width: TUBE_WIDTH, handle: this.art.holdsFarHandle(hold) ? 0 : 1, crisp: true, color: PLAYER_TUBE });
-      const heightIn = this.customOf(this.slot.custom).heightIn * ART_SCALE[this.difficulty];
-      const lean = Math.sin(t * 1.7) * 0.35;
-      this.art.place(tube, PREVIEW.x, floatY, ART_TEXEL * TEXELS_PER_UNIT, { heightIn, lean, frame: hold });
-      return;
-    }
-    const rider = this.previews[this.cell];
-    rider.leanVisual = Math.sin(t * 1.7) * 0.35;
-    drawRider(g, rider, { x: PREVIEW.x, y: floatY, s: PREVIEW.s }, t);
+    const art = this.isCustom ? this.art : this.presetArt;
+    if (!art) return;
+    const { hold } = ATTACK_ANIM;
+    const tube = tubeTextures(this, { width: TUBE_WIDTH, handle: art.holdsFarHandle(hold) ? 0 : 1, crisp: true, color: PLAYER_TUBE });
+    const heightIn = this.isCustom
+      ? this.customOf(this.slot.custom).heightIn * ART_SCALE[this.difficulty]
+      : this.slot.c.stats[this.difficulty].heightIn * ART_SCALE[this.difficulty];
+    art.place(tube, PREVIEW.x, floatY, ART_TEXEL * TEXELS_PER_UNIT, { heightIn, lean: 0, frame: hold });
   }
 }

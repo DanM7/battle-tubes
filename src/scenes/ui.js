@@ -21,14 +21,14 @@ export const menuGridCell = (i, { rowY = MENU_ROW_Y, rowStep = MENU_ROW_STEP } =
 });
 
 // A big see-through menu button. `dimmed` is for ones that aren't available yet.
-export function addMenuButton(scene, x, y, label, onClick, { dimmed = false, ...size } = {}) {
+export function addMenuButton(scene, x, y, label, onClick, { dimmed = false, font, ...size } = {}) {
   const { w, h, textScale } = { ...MENU_BUTTON, ...size };
   const [fill, hover] = dimmed ? [0x3d5470, 0x4a6585] : [0x1d4e89, 0x2a6bb8];
   const rect = scene.add
     .rectangle(x, y, w, h, fill, BUTTON_ALPHA)
     .setStrokeStyle(3, 0xffffff, dimmed ? 0.5 : 1)
     .setInteractive({ useHandCursor: true });
-  addText(scene, x, y, label, { scale: textScale, color: dimmed ? '#aab8c8' : '#ffffff' }).setOrigin(0.5);
+  addText(scene, x, y, label, { scale: textScale, color: dimmed ? '#aab8c8' : '#ffffff', ...(font ? { font } : {}) }).setOrigin(0.5);
   rect.on('pointerover', () => rect.setFillStyle(hover, BUTTON_HOVER_ALPHA));
   rect.on('pointerout', () => rect.setFillStyle(fill, BUTTON_ALPHA));
   rect.on('pointerup', onClick);

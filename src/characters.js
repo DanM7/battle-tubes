@@ -54,10 +54,10 @@
 //              mode you're playing.
 //              { beat: 'Adam', modes: ['easy', 'hard'] } = playable (in any mode) after
 //              beating that rider in every one of those modes.
-//              password: (optional) entering it on the main menu's Password screen
-//              also unlocks this rider, in every mode. Letters A-Z only; it's matched
-//              in uppercase.
-//              { password: 'BART' } alone = playable only once that's entered.
+//              password: (optional) sealed form (passwords.js) of the code typed on
+//              the Password screen; also unlocks this rider in every mode. Letters
+//              A-Z only when typed.
+//              { password: seal('BART') } alone = playable only once that's entered.
 
 export const CHARACTERS = [
   {
@@ -68,14 +68,17 @@ export const CHARACTERS = [
     trunks: 0xf5c228,
     skin: 0xf7b481,
     style: 'Rookie. Flails at anything, even from too far away, and barely defends.',
-    sprites: { easy: 'assets/sprites/riders/player-billy.png' },
+    sprites: {
+      easy: 'assets/sprites/riders/player-billy.png',
+      hard: 'assets/sprites/riders/player-chillo.png',
+    },
     body: 'skinny',
     heads: { easy: 'billy', hard: 'billy-2010' },
     stats: {
       easy: { heightIn: 66, grip: 1 },
       hard: { heightIn: 72, grip: 2 },
     },
-    unlock: { beat: 'Billy', password: 'NILL' },
+    unlock: { beat: 'Billy', password: 'KXXTKSVQSS' }, // sealed; see passwords.js
   },
   {
     id: 'Rob',
@@ -85,13 +88,16 @@ export const CHARACTERS = [
     trunks: 0x389942,
     skin: 0xf4b07b,
     style: 'Aggressive spammer. Gets right up close and never stops swinging.',
-    sprites: { easy: 'assets/sprites/riders/player-rob.png' },
+    sprites: {
+      easy: 'assets/sprites/riders/player-rob.png',
+      hard: 'assets/sprites/riders/player-franzi.png',
+    },
     heads: { easy: 'rob', hard: 'rob-2010' },
     stats: {
       easy: { heightIn: 60, grip: 3 },
       hard: { heightIn: 68, grip: 3 },
     },
-    unlock: { beat: 'Rob', password: 'BOBD' },
+    unlock: { beat: 'Rob', password: '3G6C5SLQ6L' }, // sealed; see passwords.js
   },
   {
     id: 'Mike',
@@ -104,13 +110,16 @@ export const CHARACTERS = [
     mass: 1.8,
     leanPower: 1.3,
     style: 'Rammer. Big, heavy, and always shoving you toward the shore.',
-    sprites: { easy: 'assets/sprites/riders/player-mike.png' },
+    sprites: {
+      easy: 'assets/sprites/riders/player-mike.png',
+      hard: 'assets/sprites/riders/player-burton.png',
+    },
     heads: { easy: 'mike', hard: 'mike-2010' },
     stats: {
       easy: { heightIn: 68, grip: 3 },
       hard: { heightIn: 74, grip: 3 },
     },
-    unlock: { beat: 'Mike', password: 'SEEE' },
+    unlock: { beat: 'Mike', password: 'Q7STB3MZV6' }, // sealed; see passwords.js
   },
   {
     id: 'RJ',
@@ -120,13 +129,16 @@ export const CHARACTERS = [
     trunks: 0x70b6d8,
     skin: 0xf7caa8,
     style: 'Passive strafer. Drifts in and out of kick range, dodges, backs off when hurt.',
-    sprites: { easy: 'assets/sprites/riders/player-rj.png' },
+    sprites: {
+      easy: 'assets/sprites/riders/player-rj.png',
+      hard: 'assets/sprites/riders/player-moni.png',
+    },
     heads: { easy: 'rj' },
     stats: {
       easy: { heightIn: 62, grip: 3 },
       hard: { heightIn: 69, grip: 3 },
     },
-    unlock: { beat: 'RJ', password: 'PONO' },
+    unlock: { beat: 'RJ', password: 'MG6CMBZH6L' }, // sealed; see passwords.js
   },
   {
     id: 'Dan',
@@ -136,12 +148,15 @@ export const CHARACTERS = [
     trunks: 0xf68427,
     skin: 0xfbbb87,
     style: 'Sub-boss. Fights like any rider below him on the ladder, and keeps switching.',
-    sprites: { easy: 'assets/sprites/riders/player-dan.png' },
+    sprites: {
+      easy: 'assets/sprites/riders/player-dan.png',
+      hard: 'assets/sprites/riders/player-barf.png',
+    },
     stats: {
       easy: { heightIn: 64, grip: 3 },
       hard: { heightIn: 70, grip: 3 },
     },
-    unlock: { beat: 'Dan', password: 'PUKE' },
+    unlock: { beat: 'Dan', password: 'MGGCJKMZKK' }, // sealed; see passwords.js
   },
   {
     id: 'Adam',
@@ -152,14 +167,17 @@ export const CHARACTERS = [
     skin: 0xf8b985,
     leanPower: 1.2,
     style: 'The final boss. Slippery, does everything well, grabs every health item.',
-    sprites: { easy: 'assets/sprites/riders/player-adam.png' },
-    body: 'chubby',
+    // Hard standing is normal build (not the chubby easy standing / chubby head art).
+    sprites: {
+      easy: 'assets/sprites/riders/player-adam.png',
+      hard: 'assets/sprites/riders/player-bnap.png',
+    },
     heads: { easy: 'adam' },
     stats: {
       easy: { heightIn: 58, grip: 5 },
       hard: { heightIn: 67, grip: 5 },
     },
-    unlock: { beat: 'Adam', password: 'DOLE' },
+    unlock: { beat: 'Adam', password: '5X6CKSMZ8X' }, // sealed; see passwords.js
   },
   {
     id: 'Jeff',
@@ -174,7 +192,7 @@ export const CHARACTERS = [
       easy: { heightIn: 70, grip: 5 },
       hard: { heightIn: 70, grip: 5 },
     },
-    unlock: { beat: 'Adam', modes: ['easy', 'hard'], password: 'THEQ' },
+    unlock: { beat: 'Adam', modes: ['easy', 'hard'], password: 'RGWLB33ZWC' }, // sealed; see passwords.js
   },
   {
     id: 'Bart',
@@ -183,14 +201,14 @@ export const CHARACTERS = [
     trunks: 0x1d4ed8,
     skin: 0xfcd34d,
     secret: true,
-    style: 'Secret password rider. Short, yellow, and tells everyone to eat his shorts.',
+    style: 'Short, yellow, and tells everyone to eat his shorts.',
     sprites: { easy: 'assets/sprites/riders/player-bart.png', hard: 'assets/sprites/riders/player-bart.png' },
     looks: { easy: { skin: 0xffd90f, hair: 0xffd90f, hairStyle: 'spiky' } },
     stats: {
       easy: { heightIn: 54, grip: 3 },
       hard: { heightIn: 58, grip: 3 },
     },
-    unlock: { password: 'BART' },
+    unlock: { password: '3GNTRB6QLQ' }, // sealed; see passwords.js
   },
   {
     id: 'Stelios',
@@ -199,7 +217,7 @@ export const CHARACTERS = [
     trunks: 0x1f9e9e,
     skin: 0xffddb2,
     secret: true,
-    style: 'Secret password rider. Small and wiry, and always looking for an opening.',
+    style: 'Small and wiry, and always looking for an opening.',
     sprites: { easy: 'assets/sprites/riders/player-stelios.png', hard: 'assets/sprites/riders/player-stelios.png' },
     body: 'skinny',
     looks: { easy: { skin: 0xe9a37f, hair: 0x2b2421, hairStyle: 'crop' } },
@@ -207,7 +225,7 @@ export const CHARACTERS = [
       easy: { heightIn: 59, grip: 3 },
       hard: { heightIn: 67, grip: 3 },
     },
-    unlock: { password: 'STEL' },
+    unlock: { password: 'Q7F4B3VQ48' }, // sealed; see passwords.js
   },
   {
     id: 'Nick',
@@ -216,7 +234,7 @@ export const CHARACTERS = [
     trunks: 0xd62828,
     skin: 0xf0b15b,
     secret: true,
-    style: 'Secret password rider. Fast hands: blink and you miss the punch.',
+    style: 'Fast hands: blink and you miss the punch.',
     sprites: { easy: 'assets/sprites/riders/player-nick.png', hard: 'assets/sprites/riders/player-nick.png' },
     heads: { easy: 'nick' },
     looks: { easy: { skin: 0xc7794c } },
@@ -224,7 +242,7 @@ export const CHARACTERS = [
       easy: { heightIn: 66, grip: 3 },
       hard: { heightIn: 72, grip: 3 },
     },
-    unlock: { password: 'NICK' },
+    unlock: { password: 'KXXT63TH7R' }, // sealed; see passwords.js
   },
   {
     id: 'Kara',
@@ -234,7 +252,7 @@ export const CHARACTERS = [
     skin: 0xffddb2,
     secret: true,
     gender: 'girl',
-    style: 'Secret password rider. The smallest on the river, and quick to make you regret underestimating her.',
+    style: 'The smallest on the river, and quick to make you regret underestimating her.',
     sprites: { easy: 'assets/sprites/riders/player-kara.png', hard: 'assets/sprites/riders/player-arak.png' },
     looks: {
       easy: { skin: 0xe9a37f, hair: 0x7f4a32, hairStyle: 'ponytail' },
@@ -244,6 +262,6 @@ export const CHARACTERS = [
       easy: { heightIn: 53, grip: 3 },
       hard: { heightIn: 59, grip: 3 },
     },
-    unlock: { password: 'LOVE' },
+    unlock: { password: 'HG6CWBMZG2' }, // sealed; see passwords.js
   },
 ];

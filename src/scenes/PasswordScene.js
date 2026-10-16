@@ -3,6 +3,7 @@ import { WIDTH, HEIGHT, CHEATS, UNLOCK_ALL_PASSWORD } from '../config.js';
 import { CHARACTERS } from '../characters.js';
 import { characterForPassword } from '../campaign.js';
 import { recordPasswordUnlock, recordCheat } from '../progress.js';
+import { passwordMatches } from '../passwords.js';
 import { settings, saveSettings } from '../settings.js';
 import { addBackButton } from './ui.js';
 import { addText } from '../pixelFont.js';
@@ -113,7 +114,7 @@ export class PasswordScene extends Phaser.Scene {
     this.entry = '';
     this.refresh();
 
-    const cheat = Object.entries(CHEATS).find(([, { password: p }]) => p === password);
+    const cheat = Object.entries(CHEATS).find(([, { password: p }]) => passwordMatches(password, p));
     if (cheat) {
       const [key, { name }] = cheat;
       settings[key] = true;
@@ -122,7 +123,7 @@ export class PasswordScene extends Phaser.Scene {
       return this.say(`${name.toUpperCase()} IS ON`, ALREADY_COLOR);
     }
 
-    if (password === UNLOCK_ALL_PASSWORD) {
+    if (passwordMatches(password, UNLOCK_ALL_PASSWORD)) {
       const newlyUnlocked = CHARACTERS.filter((c) => c.unlock && !c.secret && recordPasswordUnlock(c.id));
       if (newlyUnlocked.length) return this.say('ALL RIDERS UNLOCKED!', UNLOCKED_COLOR);
       return this.say('ALL RIDERS ALREADY UNLOCKED', ALREADY_COLOR);

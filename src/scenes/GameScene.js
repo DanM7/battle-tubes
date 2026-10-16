@@ -55,9 +55,6 @@ const TAUNT_AT = 0.5;
 const TAUNT_FADE = 0.6;
 const TAUNT_HEAD_GAP = 4;
 
-// The river and its banks are drawn this many screen pixels to a pixel, for chunky
-// pixel art like the menu picture.
-const WORLD_PIXEL = 3;
 // The boat over the wake behind it, then what's between it and the riders (health items,
 // the ropes).
 const BOAT_DEPTH = 3.1;
@@ -115,13 +112,7 @@ export class GameScene extends Phaser.Scene {
     this.round = 0;
 
     this.createBackdrop();
-    this.worldG = this.make.graphics({ add: false }).setScale(1 / WORLD_PIXEL);
-    this.world = this.add
-      .renderTexture(0, 0, WIDTH / WORLD_PIXEL, HEIGHT / WORLD_PIXEL)
-      .setOrigin(0)
-      .setScale(WORLD_PIXEL)
-      .setDepth(2);
-    this.world.texture.setFilter(Phaser.Textures.FilterMode.NEAREST);
+    this.worldG = this.add.graphics().setDepth(2);
     this.entityG = this.add.graphics().setDepth(3);
     this.boatArt = new BoatSprite(this, BOAT_DEPTH);
     this.behindRidersG = this.add.graphics().setDepth(BEHIND_RIDERS_DEPTH);
@@ -313,7 +304,6 @@ export class GameScene extends Phaser.Scene {
 
     this.treeline.tilePositionX += curve * dt * 10;
     this.river.render(this.worldG, this.cameraZ);
-    this.world.clear().draw(this.worldG);
     this.renderEntities(curve);
     this.updateTaunts(dt);
     const warnDistance = RIVER.bendWarningDistance * (speed / BOAT.speeds.slow.speed);
