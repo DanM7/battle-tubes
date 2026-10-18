@@ -37,6 +37,7 @@ export let SKIN = 0xf1c27d;
 export let GRIP_PER_POINT = 0.06;
 export let MAX_GRIP = 5;
 export let UNLOCK_ALL_PASSWORD = '';
+export let UNLOCK_HARD_PASSWORD = '';
 export let BOSS = undefined;
 export let SUB_BOSS = undefined;
 
@@ -54,6 +55,9 @@ export const setMaxGrip = (v) => {
 };
 export const setUnlockAllPassword = (v) => {
   UNLOCK_ALL_PASSWORD = v;
+};
+export const setUnlockHardPassword = (v) => {
+  UNLOCK_HARD_PASSWORD = v;
 };
 
 export function recomputeDerived() {

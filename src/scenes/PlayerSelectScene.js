@@ -26,6 +26,7 @@ import { SKIN_TONES, HAIR_COLORS, TRUNKS_COLORS, riderTexture } from '../riderCo
 import { tubeTextures, TEXELS_PER_UNIT, TUBE_WIDTH } from '../tubeArt.js';
 import { addBackButton, preloadBackground, addBackground, addColorPicker } from './ui.js';
 import { addText, fontToFit } from '../pixelFont.js';
+import { enterScene, leaveTo } from '../navigate.js';
 
 const TITLE_X = 440; // centered between the back button and the year
 const GRID_AREA = { x: 36, y: 82, w: 400, h: 350 }; // the grid sizes itself to fit in here
@@ -227,6 +228,9 @@ export class PlayerSelectScene extends Phaser.Scene {
   }
 
   preload() {
+    // A prior visit that called load.start() from create() can leave the loader mid-flight
+    // after Back; reset so this entry is not stuck in LOADING forever.
+    if (this.load.isLoading()) this.load.reset();
     preloadBackground(this);
     for (const c of CHARACTERS) {
       const key = spriteKey(c, this.difficulty);
@@ -248,6 +252,11 @@ export class PlayerSelectScene extends Phaser.Scene {
   }
 
   create() {
+    enterScene(this);
+    // Phaser reuses this scene object across visits; drop TubeRiders left from last time
+    // (their images were destroyed on shutdown, and setColors on them froze Easy→Back→Easy).
+    this.art = null;
+    this.presetArt = null;
     ensureMenuMusic();
     const bonus = CHARACTERS.filter((c) => c.secret && isUnlocked(this.difficulty, c)).map((c) => ({ c }));
     this.roster = [...CHARACTERS.filter((c) => !c.secret).map((c) => ({ c })), { mystery: true }, ...bonus];
@@ -281,6 +290,17 @@ export class PlayerSelectScene extends Phaser.Scene {
     this.input.keyboard.on('keydown', (e) => this.onKey(e.code));
     // Phaser keeps the browser from moving focus off the name box when the canvas is clicked.
     this.input.on('pointerdown', () => this.nameInput.node.blur());
+    this.events.once('shutdown', () => {
+      this.nameInput?.node?.blur?.();
+      this.picker?.objects?.forEach((o) => {
+        if (o.node) o.node.blur?.();
+      });
+      this.art = null;
+      this.presetArt = null;
+      // Abort in-flight create()-time loads so Easy → Back → Easy cannot hang the loader.
+      this.load.removeAllListeners();
+      if (this.load.isLoading()) this.load.reset();
+    });
     this.beginEdit();
     this.syncNameInput();
     this.refresh();
@@ -796,7 +816,15 @@ export class PlayerSelectScene extends Phaser.Scene {
     this.nameInput = this.add.dom(PANEL_CENTER_X, NAME_Y, node);
 
     const caretToEnd = () => node.setSelectionRange(node.value.length, node.value.length);
-    node.addEventListener('input', () => this.editCustom({ name: node.value }));
+    node.addEventListener('input', () => {
+      const name = node.value.toUpperCase();
+      if (node.value !== name) {
+        const at = node.selectionStart;
+        node.value = name;
+        node.setSelectionRange(at, at);
+      }
+      this.editCustom({ name });
+    });
     node.addEventListener('click', caretToEnd);
     node.addEventListener('focus', () => {
       requestAnimationFrame(caretToEnd);
@@ -1076,7 +1104,7 @@ export class PlayerSelectScene extends Phaser.Scene {
     const ladder = memory.ladder[this.difficulty];
     delete memory.ladder[this.difficulty];
     const campaign = ladder ? { ...ladder, player } : newCampaign(this.difficulty, player);
-    this.scene.start('Ladder', { campaign });
+    leaveTo(this, 'Ladder', { campaign });
   }
 
   // Everything that depends on the highlighted rider or the focus.

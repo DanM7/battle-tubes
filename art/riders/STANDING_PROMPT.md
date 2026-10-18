@@ -46,10 +46,11 @@ Face LEFT.
 | Chillo | skinny | yellow `#f5c228` | blond middle-part bob (`billy-2010`) |
 | Franzi | normal | green `#389942` | short blond crop (`rob-2010`) |
 | Burton | normal | purple `#8d559e` | dark buzz (`mike-2010`) |
-| Moni | normal | light blue `#70b6d8` | black crop, thin black rect glasses, 5-o’clock shadow (`rj`) |
+| Moni | normal | light blue `#70b6d8` | black crop, thin black rect glasses, 5-o’clock shadow (`rj`) — boy |
 | Barf | normal | orange `#f68427` | longer messy brown hair, stubble — not scaled Dan (`dan` hold) |
 | B-Nap | normal | red `#bd2530` | blond buzz, thin black rect glasses (`adam`) |
 | Ffej | normal | near-black `#312e35` | balding, gray mustache, thin round glasses (`ffej`) |
+| Jay / Sanjo | normal | gray `#6b7280` | RJ/Moni body, pale skin, red buzz (`rj` / `moni` heads); taller than RJ |
 
 ## Facing
 

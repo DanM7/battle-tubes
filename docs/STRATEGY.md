@@ -125,10 +125,12 @@ mode (beating Billy in 1999 doesn't unlock Chillo in 2010). Jeff, a bonus rider 
 isn't on the ladder, unlocks in both modes once you've beaten the final boss in both
 1999 and 2010. Every unlockable rider also has a password: enter it on the main menu's
 **Password** screen to unlock them in both modes, or enter **CROM** to unlock every
-rider at once (`UNLOCK_ALL_PASSWORD` in `src/config.js`). Every opponent's name, colors,
-height, grip, description and unlock rule are in `src/characters.js`. Cheat passwords
-(`CHEATS` in `src/config.js`) work the same way: **GETLOW** turns on invincibility, and
-adds an ON/OFF switch for it to the in-game Settings panel.
+rider at once (`UNLOCK_ALL_PASSWORD` in `src/config.js`). **BRAP** unlocks hard mode
+(2010) without beating anyone on Easy. Every opponent's name, colors, height, grip,
+description and unlock rule are in `src/characters.js`. Cheat passwords (`CHEATS` in
+`src/config.js`) work the same way: **GETLOW** turns on invincibility, and **EUGE**
+makes you a giant (double height and double attack damage). Both add an ON/OFF switch
+to the in-game Settings panel.
 
 Riders are a trade between **reach** (height), **endurance** (shorter is better) and
 **grip** (how much damage you take). Rider select shows each rider's grip and endurance
@@ -163,7 +165,7 @@ rider select to switch riders; you keep your place on the ladder.
 - **Tall and loose** can sit at the edge of an opponent's range and still land kicks,
   but loses trades up close and has to pace their attacks.
 - **Short and sticky** has to get close, so the opponents who keep their distance
-  (Moni, and Barf when he's mimicking her) are the hardest fights. In exchange, every
+  (Moni, and Barf when he's mimicking him) are the hardest fights. In exchange, every
   hit, scrape and stomp hurts less.
 - **Unlocked opponents** play with their own height, grip and weight (Burton keeps
   his 1.8x weight in bumps; B-Nap has grip 5). You can end up fighting your own twin
@@ -344,16 +346,16 @@ leans harder than anyone. Mostly mid kicks, with the longest reach in the game.
   shoving), which is your window to hit back.
 
 ### Moni: the passive strafer (5'9")
-Keeps her distance (~320, outside punch range) and **slides in and out** around it.
-Mostly mid kicks with some low kicks, almost never punches, and dodges often.
-**Backs off when her balance drops below 40** and won't attack while retreating. She
-also paces herself, pausing her attacks whenever her endurance drops below 45.
-- Time your approach for when her strafe swings toward you, then punch: at punch
-  range she has no fast answer.
-- When she retreats she drifts toward her own (right) bank. In narrow water, follow
-  and pin her there: no regen and steady scrape damage. Left turns make this brutal.
-- She dodges a lot, so don't overextend. Low kicks from max range wear down her tube,
-  and air damage sticks even when she recovers balance.
+Keeps his distance (~380, outside punch range) and **slides in and out** around it.
+Mostly mid kicks with some low kicks, almost never punches. **Ducks punches hard**
+and dodges low kicks decently, but **mid kicks usually connect** — that's his hole.
+**Backs off when his balance drops below 35** and won't attack while retreating. He
+also paces himself, pausing his attacks whenever his endurance drops below 40.
+- Don't spam punches: he ducks most of them. Close on his strafe and mid kick.
+- When he retreats he drifts toward his own (right) bank. In narrow water, follow
+  and pin him there: no regen and steady scrape damage. Left turns make this brutal.
+- Low kicks from max range still work sometimes; air damage sticks even when he
+  recovers balance.
 
 ### Barf: the sub-boss (5'10", Dan in 1999)
 He has no style of his own. He **fights like one of the four riders below him**,
@@ -366,7 +368,7 @@ read him.
 | Swinging at empty water, drifting in and out | Chillo | Punch freely, let him whiff |
 | Glued to your tube, punching nonstop | Franzi | Duck and low kick, or back out past ~260 |
 | Leaning into you, shoving you toward your bank | Burton | Trade in wide water, brace before the narrows |
-| Hanging back (~320), mid kicking, retreating when hurt | Moni | Close in on her strafe, chase him into his bank |
+| Hanging back (~380), mid kicking, retreating when hurt | Moni | Mid kick him (he ducks punches), chase into his bank |
 
 - **Spend the first second or two of each style reading him** before you commit. His
   spacing gives it away fastest.

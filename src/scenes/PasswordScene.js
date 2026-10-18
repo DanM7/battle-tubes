@@ -1,13 +1,14 @@
 import Phaser from 'phaser';
-import { WIDTH, HEIGHT, CHEATS, UNLOCK_ALL_PASSWORD } from '../config.js';
+import { WIDTH, HEIGHT, CHEATS, UNLOCK_ALL_PASSWORD, UNLOCK_HARD_PASSWORD } from '../config.js';
 import { CHARACTERS } from '../characters.js';
 import { characterForPassword } from '../campaign.js';
-import { recordPasswordUnlock, recordCheat } from '../progress.js';
+import { recordPasswordUnlock, recordCheat, recordHardUnlock, hasUnlockedHard } from '../progress.js';
 import { passwordMatches } from '../passwords.js';
 import { settings, saveSettings } from '../settings.js';
 import { addBackButton } from './ui.js';
 import { addText } from '../pixelFont.js';
 import { ensureMenuMusic } from '../audio.js';
+import { enterScene } from '../navigate.js';
 
 const MAX_LETTERS = 10;
 const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -23,14 +24,15 @@ const UNLOCKED_COLOR = '#7dff7d';
 const ALREADY_COLOR = '#ffdd55';
 
 // Typing in a password: on-screen letter keys (or the keyboard), DEL, and SUBMIT. A rider's
-// password (unlock.password in characters.js) unlocks them in every mode, and
-// UNLOCK_ALL_PASSWORD unlocks all the riders on the select screen (not secret ones).
+// password unlocks them in every mode; UNLOCK_ALL_PASSWORD unlocks all non-secret riders;
+// UNLOCK_HARD_PASSWORD unlocks 2010 / hard mode.
 export class PasswordScene extends Phaser.Scene {
   constructor() {
     super('Password');
   }
 
   create() {
+    enterScene(this);
     ensureMenuMusic();
     this.entry = '';
 
@@ -129,6 +131,15 @@ export class PasswordScene extends Phaser.Scene {
       const newlyUnlocked = CHARACTERS.filter((c) => c.unlock && !c.secret && recordPasswordUnlock(c.id));
       if (newlyUnlocked.length) return this.say('ALL RIDERS UNLOCKED!', UNLOCKED_COLOR);
       return this.say('ALL RIDERS ALREADY UNLOCKED', ALREADY_COLOR);
+    }
+
+    if (UNLOCK_HARD_PASSWORD && passwordMatches(password, UNLOCK_HARD_PASSWORD)) {
+      if (hasUnlockedHard()) {
+        recordHardUnlock();
+        return this.say('HARD MODE ALREADY UNLOCKED', ALREADY_COLOR);
+      }
+      recordHardUnlock();
+      return this.say('HARD MODE UNLOCKED!', UNLOCKED_COLOR);
     }
 
     const c = characterForPassword(password);

@@ -148,6 +148,7 @@ function applyConfig(data) {
     trunks: (data.custom.trunks ?? []).map(parseColor),
   });
   config.setUnlockAllPassword(data.unlockAllPassword);
+  config.setUnlockHardPassword(data.unlockHardPassword ?? '');
   fillObject(config.CHEATS, structuredClone(data.cheats));
 
   config.recomputeDerived();

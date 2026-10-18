@@ -25,6 +25,7 @@ export class Rider {
     this.mass = mass;
     this.leanPower = leanPower;
     this.invincible = false; // takes no balance or tube air damage
+    this.hitPower = 1; // multiplies outgoing attack damage (2 with the giant cheat)
     this.opponent = null;
     this.reset();
   }
@@ -159,7 +160,7 @@ export class Rider {
   startAttack(type, time) {
     const cfg = ATTACKS[type];
     const pace = 1 + this.fatigue * (ENDURANCE.slowdown - 1);
-    const power = 1 - this.fatigue * (1 - ENDURANCE.power);
+    const power = (1 - this.fatigue * (1 - ENDURANCE.power)) * this.hitPower;
     this.spend(ENDURANCE.cost[type], time);
     this.attack = {
       type,

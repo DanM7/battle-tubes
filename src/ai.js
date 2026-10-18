@@ -16,7 +16,13 @@ const PICKUP_LOOKAHEAD = 3.5; // seconds
 const LEAN_SPEED_ESTIMATE = 220;
 
 // Farthest center-to-center distance at which `attacker`'s attack still connects (with a little margin).
-const maxReach = (attacker, type) => attacker.reach(type) + TARGET_HALF_WIDTH[ATTACKS[type].target] - 20;
+export const maxReach = (attacker, type) => attacker.reach(type) + TARGET_HALF_WIDTH[ATTACKS[type].target] - 20;
+
+// Per-attack defense multiplier from the profile (`defend.high` / `.mid` / `.low`), default 1.
+const defendFactor = (profile, type) => {
+  const v = profile.defend?.[type];
+  return typeof v === 'number' && Number.isFinite(v) ? Math.max(0, v) : 1;
+};
 
 // Produces the same input shape as a human controller: { left, right, duck, high, mid, low }.
 // `profile` is an OPPONENTS entry, `skill` a CPU_SKILL_BY_RUNG entry. A profile with
@@ -164,15 +170,17 @@ export class CpuController {
 
   react(time, distance) {
     const attack = this.opp.attack;
+    const factor = defendFactor(this.profile, attack.type);
+    // Punches: duck (or low-kick counter). Mid/low: lean-dodge. `defend[type]` scales each.
     if (attack.type === 'high') {
-      if (Math.random() < this.duckChance) {
+      if (Math.random() < clamp01(this.duckChance * factor)) {
         this.duck = { from: attack.windupEnd - rand(0.05, 0.15), until: attack.windupEnd + ATTACKS.high.active + 0.05 };
       } else if (Math.random() < this.counterChance && distance < maxReach(this.self, 'low')) {
         this.counterAt = time + rand(0.05, 0.15);
       }
       return;
     }
-    if (Math.random() < this.dodgeChance) {
+    if (Math.random() < clamp01(this.dodgeChance * factor)) {
       const tapAt = attack.windupEnd - rand(0.03, DODGE.window - 0.03);
       this.dodge = { dir: attack.dir, releaseAt: tapAt - 0.06, tapAt, endAt: tapAt + 0.12 };
     }

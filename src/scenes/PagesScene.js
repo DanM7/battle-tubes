@@ -3,6 +3,7 @@ import { WIDTH, HEIGHT } from '../config.js';
 import { addCloseButton, addBackButton } from './ui.js';
 import { addText } from '../pixelFont.js';
 import { ensureMenuMusic } from '../audio.js';
+import { enterScene } from '../navigate.js';
 
 const LEFT = 60;
 const TOP = 96;
@@ -26,6 +27,7 @@ export class PagesScene extends Phaser.Scene {
   }
 
   create() {
+    enterScene(this);
     ensureMenuMusic();
     const bg = this.add.graphics();
     bg.fillGradientStyle(0x5fb8f5, 0x5fb8f5, 0x1d5f99, 0x1d5f99, 1);

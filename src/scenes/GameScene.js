@@ -23,6 +23,7 @@ import { artColors } from '../riderColors.js';
 import { tubeTextures, tubeTexturesSoon, warmTubes, bakeTubes, TEXELS_PER_UNIT } from '../tubeArt.js';
 import { addText } from '../pixelFont.js';
 import { playSfx, playSfxPool, ensureBattleMusic, syncMusicToBoatTier } from '../audio.js';
+import { enterScene, leaveTo } from '../navigate.js';
 
 const NEUTRAL = { left: false, right: false, duck: false, high: false, mid: false, low: false };
 const NO_ATTACKS = { high: false, mid: false, low: false };
@@ -102,6 +103,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   create() {
+    enterScene(this);
     this.river = new River();
     const difficulty = this.campaign && DIFFICULTIES[this.campaign.difficulty];
     this.boat = difficulty ? new Boat({ tiers: difficulty.speeds, openingHold: difficulty.openingHold }) : new Boat();
@@ -148,7 +150,7 @@ export class GameScene extends Phaser.Scene {
     this.applySettings();
     this.pauseMenu = new PauseMenu(this, {
       onResume: () => this.pauseMenu.close(),
-      onQuit: () => this.scene.start(this.exitTo),
+      onQuit: () => leaveTo(this, this.exitTo),
       onChange: () => this.applySettings(),
     });
     this.hud = new Hud(this, this.riders.map((r) => r.name), {
@@ -156,7 +158,7 @@ export class GameScene extends Phaser.Scene {
       onPause: () => this.pauseMenu.open('pause'),
     });
     if (this.score !== null) this.hud.setScore(this.score);
-    this.input.keyboard.on('keydown-ESC', () => this.scene.start(this.exitTo));
+    this.input.keyboard.on('keydown-ESC', () => leaveTo(this, this.exitTo));
     const togglePause = () => (this.pauseMenu.isOpen ? this.pauseMenu.close() : this.pauseMenu.open('pause'));
     this.input.keyboard.on('keydown-P', togglePause);
     // Once the match is over, Enter moves on instead.
@@ -194,6 +196,7 @@ export class GameScene extends Phaser.Scene {
       const human = this.controllers[i] instanceof HumanController;
       r.invincible = settings.invincible && human;
       r.setSize(settings.giant && human ? GIANT_SIZE : 1);
+      r.hitPower = settings.giant && human ? 2 : 1;
     });
   }
 
@@ -422,8 +425,10 @@ export class GameScene extends Phaser.Scene {
     this.hud.setStatus(`${this.riders[winner].name.toUpperCase()} WINS!`, prompt);
 
     const proceed = () => {
-      if (this.phase !== 'matchOver' || this.pauseMenu.isOpen) return;
+      if (this.phase !== 'matchOver' || this.pauseMenu.isOpen || this.leaving) return;
+      this.leaving = true;
       this.setPhase('leaving');
+      if (this.input) this.input.enabled = false;
       next();
     };
     this.time.delayedCall(700, () => {
@@ -473,7 +478,13 @@ export class GameScene extends Phaser.Scene {
     };
 
     drawItems(boatDepth, Infinity);
-    drawWake(g, (zAhead, x) => this.river.projectAhead(this.cameraZ, zAhead, x), boatDepth, this.boat.wake);
+    drawWake(
+      g,
+      (zAhead, x) => this.river.projectAhead(this.cameraZ, zAhead, x),
+      boatDepth,
+      this.boat.wake,
+      (zAhead) => this.river.halfWidthAt(this.cameraZ + zAhead),
+    );
     const tow = this.boatArt.place(boatPt, curve);
     const behind = this.behindRidersG;
     behind.clear();

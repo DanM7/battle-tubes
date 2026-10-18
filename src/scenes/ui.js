@@ -3,6 +3,7 @@ import { TUBE_COLORS } from '../tubeArt.js';
 import { addText } from '../pixelFont.js';
 import { toHex, fromHex } from '../riderColors.js';
 import { unlockAudio, ensureMenuMusic } from '../audio.js';
+import { leaveTo } from '../navigate.js';
 
 const TITLE_BANDS = 8; // stepped blue→green bands (pixel-art gradient, not smooth)
 
@@ -103,11 +104,9 @@ export function addCloseButton(scene) {
   button.on('pointerover', () => button.setFillStyle(0x2a6bb8));
   button.on('pointerout', () => button.setFillStyle(0x1d4e89));
   const go = () => {
-    if (scene.leaving) return;
-    scene.leaving = true;
     unlockAudio();
     ensureMenuMusic();
-    scene.scene.start('Menu');
+    leaveTo(scene, 'Menu');
   };
   button.on('pointerdown', () => unlockAudio());
   button.on('pointerup', go);
@@ -154,11 +153,9 @@ export function addColorPicker(scene, x, y, w, h, { pick, open = () => {} }) {
 // A "◀ BACK" button in the top-left corner that starts scene `to` with `data` (Esc does too).
 export function addBackButton(scene, to = 'Menu', data = undefined) {
   const back = () => {
-    if (scene.leaving) return;
-    scene.leaving = true;
     unlockAudio();
     if (to === 'Menu' || to === 'Labs') ensureMenuMusic();
-    scene.scene.start(to, data);
+    leaveTo(scene, to, data);
   };
   const w = 120;
   const h = 44;

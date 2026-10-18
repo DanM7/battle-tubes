@@ -14,7 +14,10 @@ See that repo’s README for the file layout. Canvas size and engine code stay h
 ## Scripts
 
 ```bash
-npm run dev      # local play (needs battle-tubes-data next to this repo)
+npm run dev         # local play (needs battle-tubes-data next to this repo)
 npm run build
 npm run preview
+npm test            # unit + integration tests (vitest)
+npm run test:watch  # vitest in watch mode
 ```
+

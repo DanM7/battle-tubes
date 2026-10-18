@@ -26,7 +26,7 @@ import { installAudioUnlockListeners } from './audio.js';
 // Imported only after loadGameData() so module-level constants (VIEW, RIDER, …) see filled data.
 export function startGame() {
   installAudioUnlockListeners();
-  return new Phaser.Game({
+  const game = new Phaser.Game({
     type: Phaser.AUTO,
     parent: 'game',
     width: WIDTH,
@@ -64,4 +64,7 @@ export function startGame() {
       CharImportLabScene,
     ],
   });
+  // Lets labs / automation drive scenes (and helps debug Mode→Easy→Back freezes).
+  if (typeof window !== 'undefined') window.__BT_GAME = game;
+  return game;
 }

@@ -4,8 +4,9 @@ import { IS_MOBILE } from '../device.js';
 import { SITE, fillPlaceholders } from '../copy.js';
 import { addText } from '../pixelFont.js';
 import { preloadBackground, addBackground, addMenuButton, menuGridCell, addTubeGradientTitle } from './ui.js';
-import { labFromQuery, setLabQuery, startLab } from './LabsScene.js';
+import { labFromQuery, setLabQuery, startLab } from '../labs.js';
 import { ensureMenuMusic, unlockAudio } from '../audio.js';
+import { enterScene, leaveTo } from '../navigate.js';
 
 let menuShown = false;
 // Developer tools (the labs) only show up when the game is served from this machine.
@@ -28,7 +29,7 @@ export class MenuScene extends Phaser.Scene {
   }
 
   create() {
-    this.leaving = false;
+    enterScene(this);
     // On page load, ?mode=1p (first ladder match) or ?mode=2p skips the menu (handy while
     // developing), ?lab= opens the Labs screen, and ?lab=<a lab's button text> (?lab=create,
     // say) that lab.
@@ -55,11 +56,11 @@ export class MenuScene extends Phaser.Scene {
 
     const buttons = [
       ['1 PLAYER', () => this.startOnePlayer()],
-      ['CONTROLS', () => this.scene.start('Controls')],
+      ['CONTROLS', () => leaveTo(this, 'Controls')],
       ['2 PLAYERS', () => this.comingSoon(), { dimmed: true }],
-      ['PASSWORD', () => this.scene.start('Password')],
-      ['HIGH SCORES', () => this.scene.start('HighScores')],
-      ['ABOUT', () => this.scene.start('About')],
+      ['PASSWORD', () => leaveTo(this, 'Password')],
+      ['HIGH SCORES', () => leaveTo(this, 'HighScores')],
+      ['ABOUT', () => leaveTo(this, 'About')],
     ];
     buttons.forEach(([label, onClick, options], i) => {
       const { x, y } = menuGridCell(i, GRID);
@@ -68,7 +69,7 @@ export class MenuScene extends Phaser.Scene {
     if (IS_LOCAL) {
       const x = 16 + LAB_BUTTON.w / 2;
       const y = HEIGHT - 16 - LAB_BUTTON.h / 2;
-      addMenuButton(this, x, y, 'LAB', () => this.scene.start('Labs'), LAB_BUTTON);
+      addMenuButton(this, x, y, 'LAB', () => leaveTo(this, 'Labs'), LAB_BUTTON);
     }
 
     this.addFooter();
@@ -104,8 +105,6 @@ export class MenuScene extends Phaser.Scene {
   }
 
   startOnePlayer() {
-    if (this.leaving) return;
-    this.leaving = true;
     // Unlock in this tap stack before fullscreen (mobile often re-suspends after FS).
     unlockAudio();
     ensureMenuMusic();
@@ -113,7 +112,7 @@ export class MenuScene extends Phaser.Scene {
       this.scale.startFullscreen();
       screen.orientation?.lock?.('landscape').catch(() => {});
     }
-    this.scene.start('Difficulty');
+    leaveTo(this, 'Difficulty');
   }
 
   comingSoon() {

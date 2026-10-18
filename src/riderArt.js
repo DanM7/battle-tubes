@@ -2,8 +2,11 @@ import { RIDER } from './config.js';
 import { TEXELS_PER_UNIT, RUBBER } from './tubeArt.js';
 import { riderTexture } from './riderColors.js';
 import { fillQuad } from './draw.js';
+import { BUILDS, GENDERS, HAIR_STYLES, HAIR_ANIM_ALIAS, genderBuilds, hairStyleLabel } from './riderLooks.js';
 
 // Rider animation strips from tools/cutout.py, seated in the drawn tubes from tubeArt.js.
+
+export { BUILDS, GENDERS, HAIR_STYLES, genderBuilds, hairStyleLabel };
 
 export const RIDER_ANIM = { key: 'dan-punch', url: 'assets/sprites/riders/anim/dan-punch' };
 // Dan holding both handles, then winding up and throwing a punch, then winding up a kick
@@ -18,25 +21,21 @@ export const ATTACK_ANIM = {
   midKick: 4,
   lowKick: 5,
 };
-export const BUILDS = ['skinny', 'normal', 'chubby', 'fat', 'huge'];
 // Per mode, how much bigger the pictures are drawn than the rider's height makes them:
 // 2010's riders are grown men, and at their height alone they look like big kids.
 export const ART_SCALE = { easy: 1, hard: 1.1 };
-export const GENDERS = ['boy', 'girl'];
 // Per gender, the hair styles, the first the default. A boy's are Dan's head with other
 // hair (his own first), always his face: art/riders/hair/<style>.jpg, which
 // tools/cutout.py puts on every build. A girl's are Dan's frames redrawn as a girl with
 // that hair: art/riders/girls/<style>/.
-export const HAIR_STYLES = { boy: ['classic', 'spiky', 'buzz', 'crop', 'mohawk', 'long'], girl: ['ponytail', 'ponytail-no-bangs'] };
-export const hairStyleLabel = (style) => style.replaceAll('-', ' ').toUpperCase();
-// The builds each gender comes in (girls are only drawn in the normal one so far).
-export const genderBuilds = (gender) => (gender === 'girl' ? ['normal'] : BUILDS);
 const attackFrames = (name) => ({ ...ATTACK_ANIM, key: `${name}-attack`, url: `assets/sprites/riders/anim/${name}-attack` });
 // The same frames on another build (characters.js `body`), with Dan's head in a hair
 // style, or a girl's frames in hers.
 export function buildAnim(build, hairStyle, gender = 'boy') {
   if (gender === 'girl') return attackFrames(`girl-${HAIR_STYLES.girl.includes(hairStyle) ? hairStyle : HAIR_STYLES.girl[0]}`);
-  const style = HAIR_STYLES.boy.indexOf(hairStyle) > 0 ? [hairStyle] : [];
+  const keyed = HAIR_STYLES.boy.includes(hairStyle) ? hairStyle : HAIR_STYLES.boy[0];
+  const styleKey = HAIR_ANIM_ALIAS[keyed] ?? keyed;
+  const style = HAIR_STYLES.boy.indexOf(keyed) > 0 ? [styleKey] : [];
   const name = ['dan', ...style, ...(build === 'normal' ? [] : [build])].join('-');
   return name === 'dan' ? ATTACK_ANIM : attackFrames(name);
 }
@@ -65,12 +64,18 @@ export function preloadRiderAnim(scene, anim = RIDER_ANIM) {
 export const isRiderAnimLoaded = (scene, anim) => scene.cache.json.exists(`${anim.key}-meta`) && scene.textures.exists(`${anim.key}-strip`);
 
 // After preload(): loads `anim`, then calls `done` (right away if it's already loaded).
-// Not called if the scene stops first, or if it doesn't load.
+// Skips the callback if the scene shut down mid-load (Back during a fetch used to leave
+// the LoaderPlugin hung so the next Easy never left LOADING).
 export function loadRiderAnim(scene, anim, done) {
   if (isRiderAnimLoaded(scene, anim)) return done();
-  scene.load.once('complete', () => isRiderAnimLoaded(scene, anim) && done());
+  const onComplete = () => {
+    scene.load.off('complete', onComplete);
+    if (!scene.sys?.isActive()) return;
+    if (isRiderAnimLoaded(scene, anim)) done();
+  };
+  scene.load.once('complete', onComplete);
   preloadRiderAnim(scene, anim);
-  scene.load.start();
+  if (!scene.load.isLoading()) scene.load.start();
 }
 
 // The strip as a spritesheet (made once), and its frame size, anchor and handles.
@@ -121,8 +126,10 @@ export class TubeRider {
     this.back = scene.add.image(0, 0, '__DEFAULT');
     this.straps = scene.add.graphics();
     this.rider = scene.add.image(0, 0, riderTexture(scene, anim), 0).setOrigin(anchor.x / frameWidth, anchor.y / frameHeight);
+    this.glassesG = scene.add.graphics();
     this.front = scene.add.image(0, 0, '__DEFAULT');
-    this.container = scene.add.container(0, 0, [this.back, this.straps, this.rider, this.front]);
+    this.glasses = false;
+    this.container = scene.add.container(0, 0, [this.back, this.straps, this.rider, this.glassesG, this.front]);
   }
 
   // `tube` is from tubeTextures(); its bottom center goes at x, y, with `scale` screen pixels
@@ -143,8 +150,52 @@ export class TubeRider {
       .setPosition(tube.seat.x * texel + lean * RIDER.leanShift * scale, tube.seat.y * texel)
       .setVisible(showRider);
     this.straps.clear();
+    this.glassesG.clear().setVisible(showRider && this.glasses);
     if (showRider) this.drawStraps(tube, texel, s, facing, lean, lean * RIDER.leanShift * scale, strapOffset * scale * facing, frame);
+    if (showRider && this.glasses) this.drawGlasses(s, facing);
     return this;
+  }
+
+  // Thin black glasses on the face (looks.glasses), drawn in 3/4 like the idle sprites:
+  // one near lens + temple arm toward the ear (not two square-on lenses facing the camera).
+  // Frame art faces right; `facing` flips them with the rider.
+  drawGlasses(s, facing) {
+    const { top, left, right } = this.meta.head;
+    const { anchor } = this.meta;
+    const headW = Math.max(8, right - left);
+    // Silhouette bounds include hair; inset to the cheeks so the lens sits on the eye.
+    const faceLeft = left + headW * 0.2;
+    const faceRight = right - headW * 0.06;
+    const faceW = Math.max(8, faceRight - faceLeft);
+    const eyeY = top + HEAD_ROWS * 0.42;
+    // Near eye on a right-facing head (cheek toward camera = higher X).
+    const nearX = faceLeft + faceW * 0.55;
+    const lensW = faceW * 0.28;
+    const lensH = HEAD_ROWS * 0.14;
+    const at = (fx, fy) => ({
+      x: this.rider.x + (fx - anchor.x) * s * facing,
+      y: this.rider.y + (fy - anchor.y) * s,
+    });
+    const stroke = Math.max(1.1, Math.abs(s) * 1.8);
+    const g = this.glassesG;
+    g.lineStyle(stroke, 0x1a1a1a, 1);
+    // Near lens only (over the near eye).
+    const n1 = nearX - lensW * 0.35;
+    const n2 = nearX + lensW * 0.65;
+    const y1 = eyeY - lensH / 2;
+    const y2 = eyeY + lensH / 2;
+    const a = at(n1, y1);
+    const b = at(n2, y1);
+    const c = at(n2, y2);
+    const d = at(n1, y2);
+    g.strokeRect(Math.min(a.x, b.x, c.x, d.x), Math.min(a.y, b.y, c.y, d.y), Math.abs(b.x - a.x), Math.abs(d.y - a.y));
+    // Far rim: thin foreshortened edge toward the nose (not a second full lens).
+    const farX = n1 - faceW * 0.12;
+    g.lineBetween(at(farX, y1 + 1).x, at(farX, y1 + 1).y, at(farX, y2 - 1).x, at(farX, y2 - 1).y);
+    g.lineBetween(at(farX, eyeY).x, at(farX, eyeY).y, at(n1, eyeY).x, at(n1, eyeY).y);
+    // Temple from near lens back to the near ear.
+    const earX = Math.min(faceRight - faceW * 0.02, n2 + faceW * 0.22);
+    g.lineBetween(at(n2, eyeY).x, at(n2, eyeY).y, at(earX, eyeY).x, at(earX, eyeY).y);
   }
 
   // A handle held out in front of the rider (past their anchor) is the far side's, strapped
@@ -203,7 +254,9 @@ export class TubeRider {
   }
 
   // Skin, trunks and hair colors, as riderTexture() in riderColors.js takes them.
+  // Pass `glasses: true` (from a character's looks) to draw rectangular frames.
   setColors(colors) {
+    this.glasses = Boolean(colors?.glasses);
     this.rider.setTexture(riderTexture(this.scene, this.anim, colors), this.rider.frame.name);
     return this;
   }

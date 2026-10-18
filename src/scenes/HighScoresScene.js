@@ -4,6 +4,7 @@ import { highScores, formatScore } from '../score.js';
 import { addCloseButton, addMenuButton } from './ui.js';
 import { addText } from '../pixelFont.js';
 import { ensureMenuMusic } from '../audio.js';
+import { enterScene, leaveTo } from '../navigate.js';
 
 const COLUMN_W = 380;
 const HEADER_Y = 112;
@@ -19,6 +20,7 @@ export class HighScoresScene extends Phaser.Scene {
   }
 
   create() {
+    enterScene(this);
     ensureMenuMusic();
     const bg = this.add.graphics();
     bg.fillGradientStyle(0x5fb8f5, 0x5fb8f5, 0x1d5f99, 0x1d5f99, 1);
@@ -30,7 +32,7 @@ export class HighScoresScene extends Phaser.Scene {
     modes.forEach((difficulty, i) => this.drawTable(difficulty, (WIDTH * (i * 2 + 1)) / (modes.length * 2)));
 
     const { y, ...size } = SCORING_BUTTON;
-    const showScoring = () => this.scene.start('Scoring');
+    const showScoring = () => leaveTo(this, 'Scoring');
     addMenuButton(this, WIDTH / 2, y, 'HOW SCORING WORKS', showScoring, size);
     this.input.keyboard.once('keydown-ENTER', showScoring);
   }

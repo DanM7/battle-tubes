@@ -41,19 +41,22 @@ export function wakeSurfaceHeight(zAhead, x, boatDepth, amp) {
 
 // The foam trail behind the boat, plus (when `amp` > 0) the wake spreading out in a V:
 // raised water between the two crests, with an outer face dropping off beyond each.
-// project(zAhead, worldX) returns a projected point.
-export function drawWake(g, project, boatDepth, amp) {
+// project(zAhead, worldX) returns a projected point. `shoreHalfAt(zAhead)` is the river's
+// half-width at that depth (Infinity when unknown); the wake never paints past the bank.
+export function drawWake(g, project, boatDepth, amp, shoreHalfAt = () => Infinity) {
   const boat = project(boatDepth, 0);
   const nearDepth = wakeNearDepth();
   const near = project(nearDepth, 0);
-  // Foam trail from the boat all the way off the bottom of the screen.
+  const foamFar = Math.min(150, shoreHalfAt(boatDepth));
+  const foamNear = Math.min(900, shoreHalfAt(nearDepth));
+  // Foam trail from the boat all the way off the bottom of the screen (still inside the banks).
   g.fillStyle(0xffffff, 0.16);
   fillQuad(
     g,
-    { x: boat.x - 150 * boat.s, y: boat.y },
-    { x: boat.x + 150 * boat.s, y: boat.y },
-    { x: near.x + 900 * near.s, y: HEIGHT + 60 },
-    { x: near.x - 900 * near.s, y: HEIGHT + 60 },
+    { x: boat.x - foamFar * boat.s, y: boat.y },
+    { x: boat.x + foamFar * boat.s, y: boat.y },
+    { x: near.x + foamNear * near.s, y: HEIGHT + 60 },
+    { x: near.x - foamNear * near.s, y: HEIGHT + 60 },
   );
   if (amp <= 0) return;
 
@@ -61,12 +64,22 @@ export function drawWake(g, project, boatDepth, amp) {
   const rows = [];
   for (let i = 0; i <= WAKE_SLICES; i++) {
     const z = far - ((far - nearDepth) * i) / WAKE_SLICES;
+    const shore = Math.max(0, shoreHalfAt(z));
     const { crest, half, height } = wakeAt(z, boatDepth, amp);
+    // Keep the raised top and its outer face on the water; skip a side past the bank.
+    const crestX = Math.min(crest, shore);
+    const outerX = Math.min(crest + half, shore);
     const top = (side) => {
-      const p = project(z, side * crest);
+      const p = project(z, side * crestX);
       return { x: p.x, y: p.y - height * p.s };
     };
-    rows.push({ left: top(-1), right: top(1), leftOuter: project(z, -(crest + half)), rightOuter: project(z, crest + half) });
+    rows.push({
+      left: top(-1),
+      right: top(1),
+      leftOuter: project(z, -outerX),
+      rightOuter: project(z, outerX),
+      hasFace: outerX > crestX + 1,
+    });
   }
   // Far to near, so nearer slices cover farther ones.
   for (let i = 0; i < WAKE_SLICES; i++) {
@@ -74,9 +87,11 @@ export function drawWake(g, project, boatDepth, amp) {
     const b = rows[i + 1];
     g.fillStyle(WAKE_TOP, 0.85);
     fillQuad(g, a.left, a.right, b.right, b.left);
-    g.fillStyle(WAKE_FACE, 0.85);
-    fillQuad(g, a.left, a.leftOuter, b.leftOuter, b.left);
-    fillQuad(g, a.right, a.rightOuter, b.rightOuter, b.right);
+    if (a.hasFace || b.hasFace) {
+      g.fillStyle(WAKE_FACE, 0.85);
+      fillQuad(g, a.left, a.leftOuter, b.leftOuter, b.left);
+      fillQuad(g, a.right, a.rightOuter, b.rightOuter, b.right);
+    }
     g.lineStyle(2, 0xffffff, 0.7);
     g.lineBetween(a.left.x, a.left.y, b.left.x, b.left.y);
     g.lineBetween(a.right.x, a.right.y, b.right.x, b.right.y);

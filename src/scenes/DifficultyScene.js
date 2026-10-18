@@ -4,6 +4,7 @@ import { hasUnlockedHard } from '../progress.js';
 import { addBackButton, preloadBackground, addBackground, BUTTON_ALPHA, BUTTON_HOVER_ALPHA } from './ui.js';
 import { addText } from '../pixelFont.js';
 import { ensureMenuMusic, unlockAudio } from '../audio.js';
+import { enterScene, leaveTo } from '../navigate.js';
 
 const SQUARE = 360;
 const GAP = 40;
@@ -17,7 +18,7 @@ const HARD_LOCK = 'Beat your first rider on EASY to unlock';
 
 // 1-player mode select: two big squares, one per difficulty. Comes before rider
 // select, since each mode has its own riders. Hard stays locked until the first
-// Easy ladder win.
+// Easy ladder win (or the BRAP password).
 export class DifficultyScene extends Phaser.Scene {
   constructor() {
     super('Difficulty');
@@ -28,7 +29,7 @@ export class DifficultyScene extends Phaser.Scene {
   }
 
   create() {
-    this.leaving = false;
+    enterScene(this);
     unlockAudio();
     ensureMenuMusic();
     addBackground(this);
@@ -72,13 +73,10 @@ export class DifficultyScene extends Phaser.Scene {
   }
 
   choose(difficulty) {
-    if (this.leaving) return;
     if (difficulty === 'hard' && !hasUnlockedHard()) return;
-    this.leaving = true;
-    this.input.enabled = false;
     unlockAudio();
     ensureMenuMusic();
-    this.scene.start('PlayerSelect', { difficulty });
+    leaveTo(this, 'PlayerSelect', { difficulty });
   }
 }
 

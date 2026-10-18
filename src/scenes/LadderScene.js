@@ -9,6 +9,7 @@ import { tubeTextures, TEXELS_PER_UNIT, TUBE_WIDTH } from '../tubeArt.js';
 import { addBackButton, preloadBackground, addBackground, addMenuButton } from './ui.js';
 import { addText } from '../pixelFont.js';
 import { ensureMenuMusic } from '../audio.js';
+import { enterScene, leaveTo } from '../navigate.js';
 
 const TITLE_X = 440; // centered between the back button and the year
 // The ladder sits in the left half; the next opponent and their description fill the right.
@@ -93,9 +94,10 @@ export class LadderScene extends Phaser.Scene {
       addText(this, DESC.x, 430, next.style, { scale: 2, color: '#e8f6ff', align: 'right', wrap: DESC.wrap }).setOrigin(1, 0);
     }
 
+    enterScene(this);
     const proceed = () => {
-      if (champion) this.scene.start('Menu');
-      else this.scene.start('Game', { mode: '1p', campaign });
+      if (champion) leaveTo(this, 'Menu');
+      else leaveTo(this, 'Game', { mode: '1p', campaign });
     };
     addMenuButton(this, WIDTH / 2, HEIGHT - 36, champion ? 'MENU' : 'BATTLE!', proceed, BATTLE_BUTTON);
     this.input.keyboard.once('keydown-ENTER', proceed);

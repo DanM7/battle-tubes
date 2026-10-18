@@ -2,7 +2,7 @@
 // list for both years (1999 / 2010), up to CUSTOM.maxRiders. A rider is
 // { name, color, heightIn, grip, look }, where `look` is how their picture is drawn:
 // { skin, hair, trunks, skinShading, hairShading, trunksShading } as riderTexture() in
-// riderColors.js takes them, plus `gender` (a GENDERS entry in riderArt.js), `build`
+// riderColors.js takes them, plus `gender` (a GENDERS entry in riderLooks.js), `build`
 // (one of genderBuilds()) and `hairStyle` (one of that gender's HAIR_STYLES).
 //
 // API still takes `difficulty` where a new rider's default height depends on the year
@@ -10,7 +10,7 @@
 import { CUSTOM } from './config.js';
 import { fitBudget } from './build.js';
 import { DAN_COLORS, artColors } from './riderColors.js';
-import { GENDERS, HAIR_STYLES } from './riderArt.js';
+import { GENDERS, HAIR_STYLES } from './riderLooks.js';
 
 const KEY = 'battle-tubes-custom';
 
@@ -24,8 +24,12 @@ const newLook = (index) => ({
 
 // Saves from before riders had a look only had a match's trunks color: they get Dan's
 // look in those trunks. Older looks get what's been added since as Dan has it.
-function withLook({ trunks, ...rider }) {
-  return { ...rider, look: { ...newLook(0), ...(rider.look ?? { trunks: artColors({ trunks }).trunks }) } };
+function withLook({ trunks, name = '', ...rider }) {
+  return {
+    ...rider,
+    name: String(name).toUpperCase(),
+    look: { ...newLook(0), ...(rider.look ?? { trunks: artColors({ trunks }).trunks }) },
+  };
 }
 
 // Saves from before the list could grow have empty (null) slots; those are dropped.
@@ -79,7 +83,7 @@ export const customRiderCount = () => riders.length;
 // The rider at `index`, or null past the end.
 export const customRider = (_difficulty, index) => riders[index] ?? null;
 
-export const customName = (rider) => rider.name.trim() || CUSTOM.name;
+export const customName = (rider) => (rider.name.trim() || CUSTOM.name).toUpperCase();
 
 // What the `index`th rider starts as. Default height follows the year you're creating in.
 export const newCustomRider = (difficulty, index) => ({
@@ -93,7 +97,7 @@ export const newCustomRider = (difficulty, index) => ({
 // Saving one past the end adds a rider. Shared across both years.
 export function saveCustomRider(_difficulty, index, rider) {
   if (index > riders.length || index >= CUSTOM.maxRiders) return;
-  riders[index] = { ...rider, look: { ...rider.look } };
+  riders[index] = { ...rider, name: String(rider.name ?? '').toUpperCase(), look: { ...rider.look } };
   save();
 }
 

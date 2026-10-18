@@ -3,7 +3,7 @@
 
 import { CUSTOM, MAX_GRIP } from './config.js';
 import { fitBudget } from './build.js';
-import { GENDERS, HAIR_STYLES, genderBuilds } from './riderArt.js';
+import { GENDERS, HAIR_STYLES, genderBuilds } from './riderLooks.js';
 import { DAN_COLORS } from './riderColors.js';
 
 const VERSION = 1;

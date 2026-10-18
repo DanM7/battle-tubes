@@ -3,42 +3,14 @@ import { WIDTH } from '../config.js';
 import { addText } from '../pixelFont.js';
 import { preloadBackground, addBackground, addBackButton, addMenuButton, menuGridCell } from './ui.js';
 import { ensureMenuMusic } from '../audio.js';
+import { LABS, setLabQuery, startLab, labFromQuery } from '../labs.js';
+import { enterScene } from '../navigate.js';
 
 // Developer test benches, reached from the LAB button on the main menu (on localhost). The
 // address bar follows along so a reload comes back to the same place: ?lab= on this screen,
 // ?lab=<button text> in a lab (any case; spaces and punctuation are ignored).
-const LABS = [
-  { label: 'TUBE', scene: 'TubeLab' },
-  { label: 'SIZE', scene: 'SizeLab' },
-  { label: 'ATTACK', scene: 'AttackLab' },
-  { label: 'CREATE', scene: 'CreateLab' },
-  { label: 'OPPONENTS', scene: 'OpponentsLab' },
-  { label: 'BONUS OPP.', scene: 'BonusLab' },
-  { label: 'MUSIC', scene: 'MusicLab' },
-  { label: 'SFX', scene: 'SfxLab' },
-  { label: 'PASSWORDS', scene: 'PasswordLab' },
-  { label: 'CHAR. IMPORT', scene: 'CharImportLab' },
-];
 
-const simplified = (text) => text.toLowerCase().replace(/[^a-z0-9]/g, '');
-
-// The lab ?lab=<text> asks for, if any.
-export function labFromQuery(text) {
-  return text ? LABS.find((lab) => simplified(lab.label) === simplified(text)) : undefined;
-}
-
-// Sets ?lab=<value>, or takes it out for null, without reloading.
-export function setLabQuery(value) {
-  const url = new URL(location.href);
-  if (value === null) url.searchParams.delete('lab');
-  else url.searchParams.set('lab', value);
-  if (url.href !== location.href) history.replaceState(history.state, '', url);
-}
-
-export function startLab(scene, lab) {
-  setLabQuery(simplified(lab.label));
-  scene.scene.start(lab.scene);
-}
+export { labFromQuery, setLabQuery, startLab };
 
 export class LabsScene extends Phaser.Scene {
   constructor() {
@@ -50,6 +22,7 @@ export class LabsScene extends Phaser.Scene {
   }
 
   create() {
+    enterScene(this);
     ensureMenuMusic();
     setLabQuery('');
     addBackground(this);

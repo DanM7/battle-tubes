@@ -8,9 +8,14 @@ const progress = load();
 function load() {
   try {
     const saved = JSON.parse(localStorage.getItem(KEY));
-    return { beaten: { easy: [], hard: [], ...saved?.beaten }, passwords: saved?.passwords ?? [], cheats: saved?.cheats ?? [] };
+    return {
+      beaten: { easy: [], hard: [], ...saved?.beaten },
+      passwords: saved?.passwords ?? [],
+      cheats: saved?.cheats ?? [],
+      hardUnlocked: Boolean(saved?.hardUnlocked),
+    };
   } catch {
-    return { beaten: { easy: [], hard: [] }, passwords: [], cheats: [] };
+    return { beaten: { easy: [], hard: [] }, passwords: [], cheats: [], hardUnlocked: false };
   }
 }
 
@@ -24,8 +29,16 @@ function save() {
 
 export const hasBeaten = (difficulty, opponentKey) => progress.beaten[difficulty].includes(opponentKey);
 
-// Hard mode unlocks after any Easy ladder win.
-export const hasUnlockedHard = () => progress.beaten.easy.length > 0;
+// Hard mode unlocks after any Easy ladder win, or the BRAP password.
+export const hasUnlockedHard = () => progress.beaten.easy.length > 0 || progress.hardUnlocked;
+
+// Returns true if this is the first time.
+export function recordHardUnlock() {
+  if (progress.hardUnlocked) return false;
+  progress.hardUnlocked = true;
+  save();
+  return true;
+}
 
 // Returns true if this is the first time.
 export function recordWin(difficulty, opponentKey) {

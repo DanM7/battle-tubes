@@ -30,7 +30,7 @@ export class Hud {
     this.panels = [MARGIN, WIDTH - MARGIN - BAR_W].map((x, i) => {
       const nameX = i === 0 ? x : x + BAR_W;
       const labelX = i === 0 ? x + BAR_W + 8 : x - 8;
-      addText(scene, nameX, 8, names[i], { scale: 2 }).setOrigin(i, 0).setDepth(51);
+      addText(scene, nameX, 8, String(names[i] ?? '').toUpperCase(), { scale: 2 }).setOrigin(i, 0).setDepth(51);
       addText(scene, labelX, 36 + BAR_H / 2, 'BALANCE', { scale: 2, font: 'small' }).setOrigin(i, 0.5).setDepth(51);
       addText(scene, labelX, 56 + BAR_H / 2, 'ENDURANCE', { scale: 2, font: 'small' }).setOrigin(i, 0.5).setDepth(51);
       return { x, align: i };
