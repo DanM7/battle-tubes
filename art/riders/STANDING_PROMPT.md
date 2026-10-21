@@ -50,7 +50,7 @@ Face LEFT.
 | Barf | normal | orange `#f68427` | longer messy brown hair, stubble — not scaled Dan (`dan` hold) |
 | B-Nap | normal | red `#bd2530` | blond buzz, thin black rect glasses (`adam`) |
 | Ffej | normal | near-black `#312e35` | balding, gray mustache, thin round glasses (`ffej`) |
-| Jay / Sanjo | normal | gray `#6b7280` | RJ/Moni body, pale skin, red buzz (`rj` / `moni` heads); taller than RJ |
+| Jay / Sanjo | normal | gray `#6b7280` | pale skin, red buzz, glasses; in-game `jay` / `sanjo` heads (from RJ/Moni) |
 
 ## Facing
 
